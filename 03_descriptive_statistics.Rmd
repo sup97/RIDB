@@ -1,0 +1,534 @@
+---
+title: "03_descriptive_statistics"
+---
+
+```{r}
+#install.packages(c("bit64", "readr", "data.table", "psych", "dplyr", "tidyr", "reshape2", "lubridate", "forecast", "astsa", "zoo", "nowcasting", "TSstudio", "pastecs", "grid", "gridExtra"))
+
+library(readr)
+library(data.table)
+library(psych)
+library(dplyr)
+library(tidyr)
+library(reshape2)
+library(lubridate)
+library(forecast)
+library(astsa)
+library(zoo)
+library(nowcasting)
+library(TSstudio)
+library(ggplot2)
+library(pastecs)
+library(readxl)
+library(gridExtra)
+library(grid)
+```
+
+#Descriptive Statistics
+
+```{r group by campsite}
+fullData <- fread("fullData.csv")
+camp <- fullData[grepl("Overnight", fullData[["UseType"]]), ] 
+rm(fullData)
+
+camp$dateDiff <- as.Date(as.character(camp$StartDate), format="%Y-%m-%d") - as.Date(as.character(camp$OrderDate), format="%Y-%m-%d")
+camp$dateDiff <- as.numeric(camp$dateDiff)+1
+camp$lengthStay <- as.Date(as.character(camp$EndDate), format="%Y-%m-%d") - as.Date(as.character(camp$StartDate), format="%Y-%m-%d")
+
+camp$lengthStay <- as.numeric(camp$lengthStay) 
+camp2 <- camp[camp$dateDiff>=0 ,]
+camp2 <- camp2[camp2$EndDate>0 ,]
+
+#delete non-camp grouns identified by Will
+camp2 <- camp2 %>%
+  subset(Park != "BROOKS CAMP (Search under Permits - Katmai NP)" & Park != "CAMP ROUND MEADOW" & Park != "JUNIPER LAKE STOCK CORRAL" & Park != "Kenai Fjords National Park Cabins" & Park != "MANZANITA LAKE CAMPING CABINS" & Park != "Priest Rock Cabin" & Park != "SUMMIT LAKE STOCK CORRAL")%>%
+  select(HistoricalReservationID, RegionDescription, ParentLocation, Park, ProductID, FacilityID, UseFee, TotalPaid, StartDate, EndDate, OrderDate, NumberOfPeople, dateDiff, lengthStay)
+
+rm(camp)
+```
+
+```{r}
+a <- NULL
+list <- unique(camp2$Park)[1:30]
+
+startTime <- Sys.time()
+cat("startTime is:", startTime)
+
+for (name in list){
+  temp <- camp2[which(camp2$Park==name),]
+  temp <- temp[,cbind(.SD, date=(as.Date(StartDate)):as.Date(EndDate)),by="HistoricalReservationID"]
+  temp$date <- as.Date(temp$date, origin = "1970-01-01")
+  temp <- temp %>%
+    group_by(date) %>%
+    mutate(totalNumberOfPeople = sum(NumberOfPeople)) %>%
+    mutate(avgNumberOfPeople = mean(NumberOfPeople)) %>%
+    mutate(occupancy = length(unique(ProductID))) %>%
+    mutate(aggPaid = sum(TotalPaid)) %>%
+    mutate(avgPaid = mean(TotalPaid)) %>%
+    mutate(avgfee = mean(UseFee/lengthStay)) %>%
+    mutate(avglengthStay = mean(lengthStay)) %>%
+    mutate(minlengthStay = min(lengthStay)) %>%
+    mutate(maxlengthStay = max(lengthStay)) %>%
+    mutate(avgdateDiff = mean(dateDiff)) %>%
+    mutate(mindateDiff = min(dateDiff)) %>%
+    mutate(maxdateDiff = max(dateDiff))
+a <- bind_rows(a, temp)
+}
+
+fwrite(a, file = "descriptive1.csv")
+endTime <-  Sys.time()
+runningTime <- endTime - startTime
+print (startTime)
+print (endTime)
+print (runningTime)
+cat ("LBJ final name is:", name)
+
+list <- unique(camp2$Park)[31:60]
+a <- NULL
+
+startTime <- Sys.time()
+cat("startTime is:", startTime)
+
+for (name in list){
+  temp <- camp2[which(camp2$Park==name),]
+  temp <- temp[,cbind(.SD, date=(as.Date(StartDate)):as.Date(EndDate)),by="HistoricalReservationID"]
+  temp$date <- as.Date(temp$date, origin = "1970-01-01")
+  temp <- temp %>%
+    group_by(date) %>%
+    mutate(totalNumberOfPeople = sum(NumberOfPeople)) %>%
+    mutate(avgNumberOfPeople = mean(NumberOfPeople)) %>%
+    mutate(occupancy = length(unique(ProductID))) %>%
+    mutate(aggPaid = sum(TotalPaid)) %>%
+    mutate(avgPaid = mean(TotalPaid)) %>%
+    mutate(avgfee = mean(UseFee/lengthStay)) %>%
+    mutate(avglengthStay = mean(lengthStay)) %>%
+    mutate(minlengthStay = min(lengthStay)) %>%
+    mutate(maxlengthStay = max(lengthStay)) %>%
+    mutate(avgdateDiff = mean(dateDiff)) %>%
+    mutate(mindateDiff = min(dateDiff)) %>%
+    mutate(maxdateDiff = max(dateDiff))
+a <- bind_rows(a, temp)
+}
+
+fwrite(a, file = "descriptive2.csv")
+endTime <-  Sys.time()
+runningTime <- endTime - startTime
+print (startTime)
+print (endTime)
+print (runningTime)
+cat ("LBJ final name is:", name)
+
+list <- unique(camp2$Park)[61:108]
+a <- NULL
+
+startTime <- Sys.time()
+cat("startTime is:", startTime)
+
+for (name in list){
+  temp <- camp2[which(camp2$Park==name),]
+  temp <- temp[,cbind(.SD, date=(as.Date(StartDate)):as.Date(EndDate)),by="HistoricalReservationID"]
+  temp$date <- as.Date(temp$date, origin = "1970-01-01")
+  temp <- temp %>%
+    group_by(date) %>%
+    mutate(totalNumberOfPeople = sum(NumberOfPeople)) %>%
+    mutate(avgNumberOfPeople = mean(NumberOfPeople)) %>%
+    mutate(occupancy = length(unique(ProductID))) %>%
+    mutate(aggPaid = sum(TotalPaid)) %>%
+    mutate(avgPaid = mean(TotalPaid)) %>%
+    mutate(avgfee = mean(UseFee/lengthStay)) %>%
+    mutate(avglengthStay = mean(lengthStay)) %>%
+    mutate(minlengthStay = min(lengthStay)) %>%
+    mutate(maxlengthStay = max(lengthStay)) %>%
+    mutate(avgdateDiff = mean(dateDiff)) %>%
+    mutate(mindateDiff = min(dateDiff)) %>%
+    mutate(maxdateDiff = max(dateDiff))
+a <- bind_rows(a, temp)
+}
+
+fwrite(a, file = "descriptive3.csv")
+endTime <-  Sys.time()
+runningTime <- endTime - startTime
+print (startTime)
+print (endTime)
+print (runningTime)
+cat ("LBJ final name is:", name)
+
+rm(temp)
+b <- fread("descriptive1.csv")
+c <- fread("descriptive2.csv")
+
+b$date <- as.Date(b$date, format = "%Y-%m-%d")
+c$date <- as.Date(c$date, format = "%Y-%m-%d")
+
+full <- bind_rows(a,b,c)
+
+rm(a,b,c)
+fwrite(full, file="descriptive_f.csv")
+```
+
+```{r column movig function}
+moveMe <- function(data, tomove, where = "last", ba = NULL) {
+  temp <- setdiff(names(data), tomove)
+  x <- switch(
+    where,
+    first = data[c(tomove, temp)],
+    last = data[c(temp, tomove)],
+    before = {
+      if (is.null(ba)) stop("must specify ba column")
+      if (length(ba) > 1) stop("ba must be a single character string")
+      data[append(temp, values = tomove, after = (match(ba, temp)-1))]
+    },
+    after = {
+      if (is.null(ba)) stop("must specify ba column")
+      if (length(ba) > 1) stop("ba must be a single character string")
+      data[append(temp, values = tomove, after = (match(ba, temp)))]
+    })
+  x
+}
+```
+
+```{r read in data}
+setwd("C:/Users/sup97/Box Sync/RIDB Article/DataAnalysis")
+initialData <- fread("descriptive_f.csv")
+
+initialData <- initialData %>%
+  subset(Park != "BROOKS CAMP (Search under Permits - Katmai NP)" & Park != "CAMP ROUND MEADOW" & Park != "JUNIPER LAKE STOCK CORRAL" & Park != "Kenai Fjords National Park Cabins" & Park != "MANZANITA LAKE CAMPING CABINS" & Park != "Priest Rock Cabin" & Park != "SUMMIT LAKE STOCK CORRAL") %>%
+  distinct(Park, date, occupancy, .keep_all = TRUE)
+
+#give unique id to each park
+data <- transform(initialData,id=as.numeric(factor(initialData$Park)))
+list <- unique(data$id) #108 id's created
+
+min(as.Date(data$date, format="%Y-%m-%d")) #"2007-01-10"
+max(as.Date(data$date, format="%Y-%m-%d")) #"2018-12-02"
+```
+
+```{r match with mother Park}
+parklist <- read_excel("C:/Users/soyou/Box Sync/RIDB Article/list of parks_WLR_2.0.xlsx")
+colnames(parklist)[colnames(parklist)=="Our Data"] <- "Campground"
+colnames(parklist)[colnames(parklist)=="# Sites"] <- "numOfSites"
+colnames(parklist)[colnames(parklist)=="# Sites on Rec.gov"] <- "recGovNumOfSites"
+colnames(parklist)[colnames(parklist)=="Booking Min"] <- "bookingMin"
+colnames(parklist)[colnames(parklist)=="Booking Max"] <- "bookingMax"
+colnames(parklist)[colnames(parklist)=="X__1"] <- "Release"
+
+parklist <- subset(parklist, Campground != "BROOKS CAMP (Search under Permits - Katmai NP)" & Park != "CAMP ROUND MEADOW" & Campground != "JUNIPER LAKE STOCK CORRAL" & Campground != "Kenai Fjords National Park Cabins" & Campground != "MANZANITA LAKE CAMPING CABINS" & Campground != "Priest Rock Cabin" & Campground != "SUMMIT LAKE STOCK CORRAL")
+
+parklist$Park[parklist$Park=="Lassen Volanic"] <- "Lassen Volcanic" ##there was typo...
+parklist$Park[parklist$Campground=="Grey Cliffs Campground"] <- "Great Basin" ##Grey Cliffs Campground is in Great Basin
+
+##Match Campground to Park
+colnames(data)[colnames(data)=="Park"] <- "Campground"
+data <- dplyr::left_join(data, parklist, by="Campground")
+
+#agg <- aggregate(data=data, Campground ~ Park, function(x) length(unique(x)))
+#agg <- left_join(agg, parklist, by="Park")
+#agg <- agg %>%
+#  select(Park, Campground.x, numOfSites, recGovNumOfSites) %>%
+#  group_by(Park) %>%
+#  mutate(numOfSites = sum(as.numeric(numOfSites))) %>%
+#  mutate(recGovNumOfSites=sum(as.numeric(recGovNumOfSites))) %>%
+#  distinct()
+
+#colnames(agg)[colnames(agg)=="Campground.x"] <- "Campground"
+#kable(agg, "latex", booktabs = T)
+```
+
+```{r clean up data}
+##Reorder data columns
+#data$HistoricalReservationID <- NULL
+data$ParentLocation <- NULL
+#data$ProductID <- NULL
+data$numOfSites <- as.numeric(data$numOfSites)
+data$recGovNumOfSites <- as.numeric(data$recGovNumOfSites)
+data <- data %>%
+  moveMe(c("id", "Park", "Campground", "date", "occupancy", "avglengthStay", "avgfee"), "first") %>%
+  moveMe(c("StartDate", "EndDate", "OrderDate", "HistoricalReservationID", "RegionDescription", "ProductID", "FacilityID", "NumberOfPeople", "UseFee", "TotalPaid"), "last")
+
+##"INDIAN COVE CAMPGROUND"  "BUTTE LAKE STOCK CORRAL" thsese two do not have number of sites
+data$numOfSites[data$Campground=="BUTTE LAKE STOCK CORRAL"] = 1
+data$recGovNumOfSites[data$Campground=="BUTTE LAKE STOCK CORRAL"] = 1
+data$Park[data$Campground=="BUTTE LAKE STOCK CORRAL"] = "Lassen Volcanic"
+data$numOfSites[data$Campground=="INDIAN COVE CAMPGROUND"] = 101
+
+##Change occupancy to percentage
+data <- data %>%
+  select(id, Park, Campground, date, occupancy, avglengthStay, avgfee, avgdateDiff, totalNumberOfPeople, avgNumberOfPeople, aggPaid, avgPaid, numOfSites, recGovNumOfSites) %>%
+  group_by(Campground) %>%
+  group_by(date) %>%
+  mutate(occupancy = occupancy/recGovNumOfSites)
+
+fwrite(data, "final_data.csv")
+```
+
+```{r}
+#Without group sites - 77 campgrounds, 29 parks - still with more than 100 average fee
+NGdata <- data[!grepl("GROUP", data$Campground),]
+NGdata <- NGdata[!grepl("Group", NGdata$Campground),]
+
+#Without those with greater than 100 USD average daily fee to avoid bias
+NFdata <- data[data$avgfee<=100,]
+summary(NFdata)
+```
+
+```{r Descriptive statistics}
+#We want occupancy, average number of people, average fee, length of stay, how far in average people book in advance at the PARK level for description
+descriptive <- NFdata %>%
+  select(Park, date, occupancy, avgNumberOfPeople, avgfee, avglengthStay, avgdateDiff) %>%
+  group_by(Park) %>%
+  group_by(date) %>%
+    mutate(avgNumberOfPeople = sum(avgNumberOfPeople)) %>%
+    mutate(occupancy = mean(occupancy)) %>%
+    mutate(avgfee = mean(avgfee)) %>%
+    mutate(avglengthStay = mean(avglengthStay)) %>%
+    mutate(avgdateDiff = mean(avgdateDiff)) %>% 
+    distinct(Park, date, .keep_all = TRUE)
+
+group <- descriptive %>%
+  group_by(Park) %>%
+  summarise(
+    avgNumberOfPeople = mean(avgNumberOfPeople), 
+    occupancy = mean(occupancy),
+    avgfee = mean(avgfee),
+    avglengthStay = mean(avglengthStay),
+    avgdateDiff = mean(avgdateDiff)
+    )
+```
+
+```{r descriptive plots}
+library(ggplot2)
+library(scales)
+library(tidyverse)
+
+ANP <- group %>%
+  mutate(Park = fct_reorder(Park, avgNumberOfPeople)) %>%
+  ggplot(aes(y = avgNumberOfPeople, x = Park)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_flip()  + 
+  labs(x = "", y = "Average Number of People") +
+  theme_classic() +
+  theme(legend.position="NA")
+
+OCC <- group %>%
+  mutate(Park = fct_reorder(Park, occupancy)) %>%
+  ggplot(aes(y = occupancy, x = Park)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_flip()  + 
+  labs(x = "", y = "Average Occupancy") +
+  theme_classic() +
+  theme(legend.position="NA")
+
+AVF <- group %>%
+  mutate(Park = fct_reorder(Park, avgfee)) %>%
+  ggplot(aes(y = avgfee, x = Park)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_flip()  + 
+  labs(x = "", y = "Average Daily Fee") +
+  theme_classic() +
+  theme(legend.position="NA")
+
+ALS <- group %>%
+  mutate(Park = fct_reorder(Park, avglengthStay)) %>%
+  ggplot(aes(y = avglengthStay, x = Park)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_flip()  + 
+  labs(x = "", y = "Average Length of Stay") +
+  theme_classic() +
+  theme(legend.position="NA")
+
+ADF <- group %>%
+  mutate(Park = fct_reorder(Park, avgdateDiff)) %>%
+  ggplot(aes(y = avgdateDiff, x = Park)) +
+  geom_bar(position = "dodge", stat = "identity") +
+  coord_flip()  + 
+  labs(x = "", y = "Average Booking Horizon") +
+  theme_classic() +
+  theme(legend.position="NA")
+
+jpeg("Park_descriptive.jpeg")
+grid.arrange(ANP, OCC, AVF, ALS, ADF, ncol = 3)
+dev.off()
+```
+
+```{r summary excel file}
+summary <- describeBy(descriptive, group = descriptive$Park, digits = 2)
+summary <- do.call("rbind", summary)
+fwrite(summary, file = "summary.csv", row.names = TRUE)
+
+summary <- fread("summary.csv") 
+summary <- separate(summary, c())
+
+fwrite(summary, file = "summary2.csv", row.names = TRUE)
+
+summary <- fread("summary2.csv")
+summary <- data.frame(left_join(summary, parklist, by=c("V1"="Campground")))
+#rename column Park to Campground and Park.y to Park
+colnames(summary)[colnames(summary)=="Park"] <- "park"
+colnames(summary)[colnames(summary)=="V1"] <- "campground"
+colnames(summary)[colnames(summary)=="V2"] <- "variable"
+summary <- transform(summary,id=as.numeric(factor(summary$campground)))
+list <- unique(summary$id) #108 id's created
+
+summary_long <- select(summary, id, campground, park, variable, numOfSites, mean, median, min, max)
+summary_long <- summary_long[summary_long$variable!="HistoricalReservationID" & summary_long$variable!="ParentLocation*" & summary_long$variable!="ProductID" & summary_long$variable!="campground*" & summary_long$variable!="StartDate*" & summary_long$variable!="EndDate*" & summary_long$variable!="OrderDate*" & summary_long$variable!="date*" & summary_long$variable!="Park*" & summary_long$variable!="Notes*" & summary_long$variable!="numOfSites" & summary_long$variable!="RegionDescription*" & summary_long$variable!="minDate*" & summary_long$variable!="maxDate*",]
+fwrite(summary_long, file="summary_long.csv", row.names = T)
+
+#summary_wide <- dcast(summary_long, park+id ~ variable, value.var="mean")
+summary_wide <- reshape(summary_long, idvar = c("id", "campground", "park", "numOfSites"), direction = "wide", timevar = "variable", sep = "_")
+summary_wide$numOfSites <- as.numeric(summary_wide$numOfSites)
+summary_wide$park[is.na(summary_wide$park)] <- "Lassen Volcanic" 
+summary_wide$numOfSites[summary_wide$campground=="BUTTE LAKE STOCK CORRAL"] = 1 ##BUTTE LAKE STOCK CORRAL was missing its park and capacity info (https://www.nps.gov/lavo/planyourvisit/butte-lake-stock.htm)
+summary_wide$park[summary_wide$park=="Lassen Volanic"] <- "Lassen Volcanic" ##there was typo...
+summary_wide$park[summary_wide$campground=="Grey Cliffs Campground"] <- "Great Basin" ##Grey Cliffs Campground is in Great Basin
+fwrite(summary_wide, "summary_wide.csv")
+```
+
+As the reservation data only has occupancy information for the dates that were occupied, we do not have data for the dates where there were no reported reservations/occupanices (it could be off-season too). Hence, there are gaps in the dates. We need to fill in those gaps so that our time series do not just jump over. Create the missing dates and fill in 0's as occupancy. 
+
+```{r fill in missing dates}
+rm(initialData) #clear some space
+test_data <- data %>%
+  select(id, Park, Campground, date, occupancy, avglengthStay, avgfee, avgdateDiff, totalNumberOfPeople, avgNumberOfPeople, aggPaid, avgPaid, numOfSites, recGovNumOfSites)
+
+newData <- NULL
+#For each ID, create the sequence of dates and fill in with either 0 (occupancy, fee, cost) or existing value (names and ID's)
+list <- unique(data$id)
+
+for (i in list) {
+  temp <- test_data[test_data$id==i,]
+  temp$date <- as.Date(temp$date, format="%Y-%m-%d")
+  start = min(as.Date(temp$date, format="%Y-%m-%d"))
+  end = max(as.Date(temp$date, format="%Y-%m-%d"))
+  temp <- temp %>%
+    complete(date = seq.Date(start, end, by="day")) %>% 
+    distinct(date, .keep_all = TRUE)
+  temp <-temp %>%
+    mutate(id = na.locf(i, na.rm=FALSE)) %>%
+    mutate(Campground = na.locf(Campground, na.rm=FALSE)) %>% 
+    mutate(Park = na.locf(Park, na.rm=FALSE)) %>% 
+    mutate(occupancy = replace_na(occupancy, 0)) %>%
+    mutate(avgfee = replace_na(avgfee, 0)) %>%
+    mutate(aggPaid = replace_na(aggPaid, 0)) %>%
+    mutate(avgPaid = replace_na(avgPaid, 0)) %>%
+    mutate(avgNumberOfPeople = replace_na(avgNumberOfPeople, 0)) %>%
+    mutate(totalNumberOfPeople = replace_na(totalNumberOfPeople, 0)) %>%
+    mutate(avgdateDiff = replace_na(avgdateDiff, 0)) %>%
+    mutate(avglengthStay = replace_na(avglengthStay, 0)) %>%
+    mutate(numOfSites = na.locf(numOfSites, na.rm=FALSE)) %>% 
+    mutate(recGovNumOfSites = na.locf(recGovNumOfSites, na.rm=FALSE))
+  newData <- bind_rows(newData, temp)
+}
+
+rm(temp)
+
+fwrite(newData, "time_series3.csv")
+```
+
+```{r graphs}
+#Average Use Fee vs. Average Number of People
+jpeg('ADF_vs_ANP.jpg')
+p1 <- ggplot(summary_wide, aes(x=mean_avgNumberOfPeople, y=mean_perDayFee)) +geom_point(aes(color=park))+ 
+  labs(x="Average Number of People", y="Average Use Fee") + theme(legend.position="bottom", legend.key.size = unit(0.02, "cm"), legend.title=element_blank())
+dev.off()
+
+jpeg('ADF_vs_ALS.jpg')
+p2 <- ggplot(summary_wide, aes(x=mean_avglengthStay, y=mean_perDayFee)) +geom_point(aes(color=park))+ 
+  labs(x="Average Length of Stay", y="Average Use Fee") + theme(legend.position="bottom", legend.key.size = unit(0.02, "cm"), legend.title=element_blank())
+dev.off()
+
+jpeg('ADF_vs_ANP_ALS.jpg')
+grid_arrange_shared_legend(p1, p2, ncol=2, nrow=1)
+dev.off()
+
+#lengthStay vs. dateDiff
+jpeg('ALS_vs_ARG.jpg')
+p3 <- ggplot(summary_wide, aes(x=mean_avglengthStay, y=mean_avgdateDiff)) + geom_point(aes(color=park)) + 
+  labs(x="Average Length of Stay", y="Average Horizon") + theme(legend.position="bottom", legend.key.size = unit(0.02, "cm"), legend.title=element_blank())
+dev.off()
+
+jpeg('ALS_vs_MRG.jpg')
+p4 <- ggplot(summary_wide, aes(x=mean_avglengthStay, y=median_avgdateDiff)) + geom_point(aes(color=park)) + 
+  labs(x="Average Length of Stay", y="Median Horizon") + theme(legend.position="bottom", legend.key.size = unit(0.02, "cm"), legend.title=element_blank())
+dev.off()
+
+jpeg('ALS_vs_AMRG.jpg')
+grid_arrange_shared_legend(p3, p4, ncol=2, nrow=1)
+dev.off()
+
+#occupancy
+
+occupancy <- summary_wide %>%
+  group_by(park) %>%
+  mutate(mean_occupancy=mean(mean_occupancy/numOfSites)) %>%
+  mutate(median_occupancy=mean(median_occupancy/numOfSites)) %>%
+  mutate(mean_avgNumberOfPeople=mean(mean_avgNumberOfPeople)) %>%
+  mutate(median_avgNumberOfPeople=mean(median_avgNumberOfPeople)) %>%
+  mutate(mean_totalNumberOfPeople=mean(mean_totalNumberOfPeople)) %>%
+  mutate(median_totalNumberOfPeople=mean(median_totalNumberOfPeople)) %>% select(campground, park, mean_avgNumberOfPeople, median_avgNumberOfPeople, mean_totalNumberOfPeople, median_totalNumberOfPeople, mean_occupancy, median_occupancy, numOfSites) %>%
+  transform(id=as.numeric(factor(park)))
+
+occupancy1 <- distinct(occupancy, id, park, mean_occupancy)
+occupancy2 <- distinct(occupancy, id, park, median_occupancy)
+occupancy3 <- distinct(occupancy, id, park, mean_avgNumberOfPeople)
+occupancy4 <- distinct(occupancy, id, park, median_avgNumberOfPeople)
+occupancy5 <- distinct(occupancy, id, park, mean_totalNumberOfPeople)
+occupancy6 <- distinct(occupancy, id, park, median_totalNumberOfPeople)
+
+
+
+jpeg('occupancy.jpg')
+p5 <- ggplot(occupancy1, aes(x=id, y=mean_occupancy)) + 
+  geom_bar(stat="identity", aes(fill=park)) + 
+  geom_bar(data=occupancy2, aes(x=id, y=median_occupancy), linetype="dashed", color="dark grey", fill="NA", stat="identity") + 
+  geom_text(aes(label = id), vjust = 1, size=3) + 
+  labs(x="Park", y="Occupancy (%)")   + theme_bw() + 
+  theme(axis.text.x = element_blank(), legend.position="none", legend.key.size = unit(0.02, "cm"), legend.title=element_blank())
+
+p6 <- ggplot(occupancy3, aes(x=id, y=mean_avgNumberOfPeople)) + 
+  geom_bar(stat="identity", aes(fill=park)) + 
+  geom_bar(data=occupancy4, aes(x=id, y=median_avgNumberOfPeople), linetype="dashed", color="dark grey", fill="NA", stat="identity") + 
+  geom_text(aes(label = id), vjust = 1, size=3) + 
+  labs(x="Park", y="Average Number of People per Day")   + theme_bw() + 
+  theme(axis.text.x = element_blank(), legend.position="none", legend.key.size = unit(0.02, "cm"), legend.title=element_blank())
+
+p7 <- ggplot(occupancy5, aes(x=id, y=mean_totalNumberOfPeople)) + 
+  geom_bar(stat="identity", aes(fill=park)) + 
+  geom_bar(data=occupancy6, aes(x=id, y=median_totalNumberOfPeople), linetype="dashed", color="dark grey", fill="NA", stat="identity")  + 
+  geom_text(aes(label = id), vjust = 1, size=3) + 
+  labs(x="Park", y="Total Number of People")  + theme_bw() + 
+  theme(legend.position="bottom", legend.key.size = unit(0.02, "cm"), legend.title=element_blank())
+
+grid_arrange_shared_legend(p5, p6, p7, ncol=3, nrow=1)
+
+dev.off()
+```
+
+```{r grid arrange function}
+grid_arrange_shared_legend <- function(..., ncol = length(list(...)), nrow = 1, position = c("bottom", "right")) {
+	plots <- list(...)
+	position <- match.arg(position)
+	g <- ggplotGrob(plots[[1]] + 
+	theme(legend.position = position))$grobs
+	legend <- g[[which(sapply(g, function(x) x$name) == "guide-box")]]
+	lheight <- sum(legend$height)
+	lwidth <- sum(legend$width)
+	gl <- lapply(plots, function(x) x +
+	theme(legend.position = "none"))
+	gl <- c(gl, ncol = ncol, nrow = nrow)
+
+	combined <- switch(position,
+	                   "bottom" = arrangeGrob(do.call(arrangeGrob, gl), 
+	                   legend,ncol = 1,
+					heights = unit.c(unit(1, "npc") - lheight, lheight)),
+					"right" = arrangeGrob(do.call(arrangeGrob, gl),
+				  legend, ncol = 2,
+					widths = unit.c(unit(1, "npc") - lwidth, lwidth)))
+
+	grid.newpage()
+	grid.draw(combined)
+
+	# return gtable invisibly
+	invisible(combined)
+}
+```
+

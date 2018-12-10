@@ -1,0 +1,814 @@
+---
+title: "04_forecasting"
+---
+---
+title: "Forecasting"
+---
+
+```{r quietly=T}
+library(readr)
+library(data.table)
+library(psych)
+library(dplyr)
+library(tidyr)
+library(reshape2)
+library(lubridate)
+library(forecast)
+library(astsa)
+library(zoo)
+library(nowcasting)
+library(TSstudio)
+library(ggplot2)
+library(pastecs)
+library(readxl)
+library(gridExtra)
+library(grid)
+library(kableExtra)
+library(knitr)
+library(fpp2)
+library(TStools)
+library(tseries)
+library(plotly)
+library(scales)
+library(midasr)
+```
+
+#Forecasting - Elkmont from Great Smoky Mountains and Mather from Grand Canyon
+
+Yosemite has the most number of campsites (902). However, only 84% is on RIDB (902 out of 1073). It has 8 campgrounds.
+
+Mather is the biggest campground on RIDB.
+
+Great Smoky has 17 campgrounds and 736 out of 750 cmapsites (second largest) on RIDB (98%). Elkmont is the biggest campground in Great Smoky.
+
+```{r Mather - Grand Canyon}
+#unique(timeSeries$id[timeSeries$Campground=="MATHER CAMPGROUND"]) #tow campgournds: 65 71
+#ID = 65 is Mather Campground
+data <- fread("final_data.csv")
+
+mather <- data[data$id==65 & as.Date(data$date, format="%Y-%m-%d")<"2018-01-01",] 
+min(mather$date) #"2007-03-01"
+max(mather$date) #"2017-12-01" 
+#let's drop December 1st 
+mather <- mather[as.Date(mather$date)<"2017-12-01",] 
+check <- mather[mather$occupancy>=1.0,]
+summary(mather)
+
+mather$date <- as.Date(mather$date, format = "%Y-%m-%d")
+mather <- mather %>%
+  complete(date = seq(as.Date("2007-03-01"), as.Date("2017-11-30"), by="day")) %>%
+    mutate(Campground = na.locf(Campground, na.rm=FALSE)) %>% 
+    mutate(Park = na.locf(Park, na.rm=FALSE)) %>% 
+    mutate(id = na.locf(id, na.rm=FALSE)) %>%
+    mutate(occupancy = replace_na(occupancy, 0)) %>%
+    mutate(avgfee = replace_na(avgfee, 0)) %>%
+    mutate(aggPaid = replace_na(aggPaid, 0)) %>%
+    mutate(avgPaid = replace_na(avgPaid, 0)) %>%
+    mutate(avgNumberOfPeople = replace_na(avgNumberOfPeople, 0)) %>%
+    mutate(totalNumberOfPeople = replace_na(totalNumberOfPeople, 0)) %>%
+    mutate(avgdateDiff = replace_na(avgdateDiff, 0)) %>%
+    mutate(avglengthStay = replace_na(avglengthStay, 0)) %>%
+    mutate(numOfSites = na.locf(numOfSites, na.rm=FALSE)) %>% 
+    mutate(recGovNumOfSites = na.locf(recGovNumOfSites, na.rm=FALSE)) %>%
+    distinct(date, .keep_all=TRUE) %>%
+  mutate(occupancy = 100*occupancy)
+fwrite(mather, "mather.csv")
+
+mather$month <- format(as.Date(mather$date, format = "%Y-%m-%d"), "%Y-%m")
+matherM <- mather %>%
+    group_by(month) %>%
+    mutate(totalNumberOfPeople = sum(totalNumberOfPeople)) %>%
+    mutate(avgNumberOfPeople = mean(avgNumberOfPeople)) %>%
+    mutate(occupancy = mean(occupancy)) %>%
+    mutate(avgPaid = sum(avgPaid)) %>%
+    mutate(avgfee = mean(avgfee)) %>%
+    mutate(avglengthStay = mean(avglengthStay)) %>%
+    mutate(avgdateDiff = mean(avgdateDiff))
+
+matherM <- matherM %>%
+  distinct(month, .keep_all=TRUE)
+
+matherM$month <- as.yearmon(matherM$month, "%Y-%m")
+matherM$month <- as.Date(matherM$month)
+
+fwrite(matherM, "mather_monthly.csv")
+```
+
+```{r elkmont}
+#unique(timeSeries$id[timeSeries$Park=="Great Smoky Mountains"]) #17 campgrounds: 42  95  17  18  96  43  23  24  37   6  28   5  29   2  83 103  22
+#ID = 42 is Elkmont Campground
+
+elkmont <- data[data$id==42 & as.Date(data$date, format="%Y-%m-%d")<"2018-01-01",] 
+min(elkmont$date) #"2007-03-01"
+max(elkmont$date) #"2017-11-01" 
+#let's drop November 1st 
+elkmont <- elkmont[as.Date(elkmont$date)<"2017-11-01",] 
+check <- elkmont[elkmont$occupancy>1.0,]
+summary(elkmont)
+
+elkmont$date <- as.Date(elkmont$date, format = "%Y-%m-%d")
+elkmont <- elkmont %>%
+  complete(date = seq(as.Date("2007-03-10"), as.Date("2017-10-30"), by="day")) %>%
+    mutate(Campground = na.locf(Campground, na.rm=FALSE)) %>% 
+    mutate(Park = na.locf(Park, na.rm=FALSE)) %>% 
+    mutate(id = na.locf(i, na.rm=FALSE)) %>%
+    mutate(occupancy = replace_na(occupancy, 0)) %>%
+    mutate(avgfee = replace_na(avgfee, 0)) %>%
+    mutate(aggPaid = replace_na(aggPaid, 0)) %>%
+    mutate(avgPaid = replace_na(avgPaid, 0)) %>%
+    mutate(avgNumberOfPeople = replace_na(avgNumberOfPeople, 0)) %>%
+    mutate(totalNumberOfPeople = replace_na(totalNumberOfPeople, 0)) %>%
+    mutate(avgdateDiff = replace_na(avgdateDiff, 0)) %>%
+    mutate(avglengthStay = replace_na(avglengthStay, 0)) %>%
+    mutate(numOfSites = na.locf(numOfSites, na.rm=FALSE)) %>% 
+    mutate(recGovNumOfSites = na.locf(recGovNumOfSites, na.rm=FALSE)) %>%
+  mutate(occupancy = 100*occupancy) %>%
+    distinct(date, .keep_all=TRUE)
+
+fwrite(elkmont, "elkmont.csv")
+
+elkmont$month <- format(as.Date(elkmont$date, format = "%Y-%m-%d"), "%Y-%m")
+elkmontM <- elkmont %>%
+    group_by(month) %>%
+    mutate(totalNumberOfPeople = sum(totalNumberOfPeople)) %>%
+    mutate(avgNumberOfPeople = mean(avgNumberOfPeople)) %>%
+    mutate(occupancy = mean(occupancy)) %>%
+    mutate(avgPaid = sum(avgPaid)) %>%
+    mutate(avgfee = mean(avgfee)) %>%
+    mutate(avglengthStay = mean(avglengthStay)) %>%
+    mutate(avgdateDiff = mean(avgdateDiff)) %>%
+  distinct(month, .keep_all=TRUE)
+
+elkmontM$month <- as.yearmon(elkmontM$month, "%Y-%m")
+elkmontM$month <- as.Date(elkmontM$month)
+
+fwrite(elkmontM, "elkmont_monthly.csv")
+```
+
+```{r grid arrange function}
+grid_arrange_shared_legend <- function(..., ncol = length(list(...)), nrow = 1, position = c("bottom", "right")) {
+	plots <- list(...)
+	position <- match.arg(position)
+	g <- ggplotGrob(plots[[1]] + 
+	theme(legend.position = position))$grobs
+	legend <- g[[which(sapply(g, function(x) x$name) == "guide-box")]]
+	lheight <- sum(legend$height)
+	lwidth <- sum(legend$width)
+	gl <- lapply(plots, function(x) x +
+	theme(legend.position = "none"))
+	gl <- c(gl, ncol = ncol, nrow = nrow)
+
+	combined <- switch(position,
+	                   "bottom" = arrangeGrob(do.call(arrangeGrob, gl), 
+	                   legend,ncol = 1,
+					heights = unit.c(unit(1, "npc") - lheight, lheight)),
+					"right" = arrangeGrob(do.call(arrangeGrob, gl),
+				  legend, ncol = 2,
+					widths = unit.c(unit(1, "npc") - lwidth, lwidth)))
+
+	grid.newpage()
+	grid.draw(combined)
+
+	# return gtable invisibly
+	invisible(combined)
+}
+```
+
+```{r READ DATA}
+mather <- fread("mather.csv")
+matherM <- fread("mather_monthly.csv")
+elkmont <- fread("elkmont.csv")
+elkmontM <- fread("elkmont_monthly.csv")
+```
+
+
+```{r mather reservation trend graphs}
+mather$date <- as.Date(mather$date, format = "%Y-%m-%d")
+matherM$month <- as.Date(matherM$month, format = "%Y-%m-%d")
+
+p1 <- ggplot(mather, aes(x=date)) +
+  geom_line(aes(y=occupancy, color="Daily", linetype="Daily")) +
+  geom_line(data = matherM, aes(x=month, y=occupancy, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
+ scale_color_manual(
+        name = "Data", 
+        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Daily = "dashed", Monthly = "solid")) +
+  labs(x="", y="Average Occupancy (%)") + 
+  theme(axis.title.y = element_text(size = 9)) + 
+  theme(axis.title.x = element_text(size = 9))  +
+  theme(panel.background = element_blank())
+
+p2 <- ggplot(mather, aes(x=date))
+p2 <- p2 + geom_line(aes(y=totalNumberOfPeople, color="Daily", linetype="Daily")) +
+  geom_line(data = matherM, aes(x=month, y=totalNumberOfPeople, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
+ scale_color_manual(
+        name = "Data", 
+        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Daily = "dashed", Monthly = "solid")) +
+  labs(x="", y="Average Number of People") + 
+  theme(axis.title.y = element_text(size = 9)) + 
+  theme(axis.title.x = element_text(size = 9)) +
+  theme(panel.background = element_blank())
+
+p3 <- ggplot(mather, aes(x=date))
+p3 <- p3 + geom_line(aes(y=avgfee, color="Daily", linetype="Daily")) +
+  geom_line(data = matherM, aes(x=month, y=avgfee, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
+ scale_color_manual(
+        name = "Data", 
+        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Daily = "dashed", Monthly = "solid")) +
+  labs(x="", y="Average Fee (USD)") + 
+  theme(axis.title.y = element_text(size = 9)) + 
+  theme(axis.title.x = element_text(size = 9)) +
+  theme(panel.background = element_blank())
+
+p4 <- ggplot(mather, aes(x=date))
+p4 <- p4 + geom_line(aes(y=avgPaid, color="Daily", linetype="Daily")) +
+  geom_line(data = matherM, aes(x=month, y=avgPaid, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
+ scale_color_manual(
+        name = "Data", 
+        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Daily = "dashed", Monthly = "solid")) +
+  labs(x="", y="Average Amount Paid (USD)") + 
+  theme(axis.title.y = element_text(size = 9)) + 
+  theme(axis.title.x = element_text(size = 9)) +
+  theme(panel.background = element_blank())
+
+p5 <- ggplot(mather, aes(x=date))
+p5 <- p5 + geom_line(aes(y=avglengthStay, color="Daily", linetype="Daily")) +
+  geom_line(data = matherM, aes(x=month, y=avglengthStay, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
+ scale_color_manual(
+        name = "Data", 
+        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Daily = "dashed", Monthly = "solid")) +
+  labs(x="", y="Average Length of Stay") + 
+  theme(axis.title.y = element_text(size = 9)) + 
+  theme(axis.title.x = element_text(size = 9)) +
+  theme(panel.background = element_blank())
+
+p6 <- ggplot(mather, aes(x=date))
+p6 <- p6 + geom_line(aes(y=avgdateDiff, color="Daily", linetype="Daily")) +
+  geom_line(data = matherM, aes(x=month, y=avgdateDiff, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
+ scale_color_manual(
+        name = "Data", 
+        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Daily = "dashed", Monthly = "solid")) +
+  labs(x="", y="Average Booking Horizon") + 
+  theme(axis.title.y = element_text(size = 9)) + 
+  theme(axis.title.x = element_text(size = 9)) +
+  theme(panel.background = element_blank())
+
+
+jpeg('mather.jpg')
+grid_arrange_shared_legend(p1, p2, p3, p4, p5, p6, ncol=2, nrow=3)
+dev.off()
+```
+
+```{r elkmont reservation trend graphs}
+##elkmont
+elkmont$date <- as.Date(elkmont$date, format = "%Y-%m-%d")
+elkmontM$month <- as.Date(elkmontM$month, format = "%Y-%m-%d")
+
+p1 <- ggplot(elkmont, aes(x=date)) +
+  geom_line(aes(y=occupancy, color="Daily", linetype="Daily")) +
+  geom_line(data = elkmontM, aes(x=month, y=occupancy, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
+ scale_color_manual(
+        name = "Data", 
+        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Daily = "dashed", Monthly = "solid")) +
+  labs(x="", y="Average Occupancy (%)") + 
+  theme(axis.title.y = element_text(size = 9)) + 
+  theme(axis.title.x = element_text(size = 9))  +
+  theme(panel.background = element_blank())
+
+p2 <- ggplot(elkmont, aes(x=date))
+p2 <- p2 + geom_line(aes(y=totalNumberOfPeople, color="Daily", linetype="Daily")) +
+  geom_line(data = elkmontM, aes(x=month, y=totalNumberOfPeople, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
+ scale_color_manual(
+        name = "Data", 
+        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Daily = "dashed", Monthly = "solid")) +
+  labs(x="", y="Average Number of People") + 
+  theme(axis.title.y = element_text(size = 9)) + 
+  theme(axis.title.x = element_text(size = 9)) +
+  theme(panel.background = element_blank())
+
+p3 <- ggplot(elkmont, aes(x=date))
+p3 <- p3 + geom_line(aes(y=avgfee, color="Daily", linetype="Daily")) +
+  geom_line(data = elkmontM, aes(x=month, y=avgfee, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
+ scale_color_manual(
+        name = "Data", 
+        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Daily = "dashed", Monthly = "solid")) +
+  labs(x="", y="Average Fee (USD)") + 
+  theme(axis.title.y = element_text(size = 9)) + 
+  theme(axis.title.x = element_text(size = 9)) +
+  theme(panel.background = element_blank())
+
+p4 <- ggplot(elkmont, aes(x=date))
+p4 <- p4 + geom_line(aes(y=avgPaid, color="Daily", linetype="Daily")) +
+  geom_line(data = elkmontM, aes(x=month, y=avgPaid, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
+ scale_color_manual(
+        name = "Data", 
+        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Daily = "dashed", Monthly = "solid")) +
+  labs(x="", y="Average Amount Paid (USD)") + 
+  theme(axis.title.y = element_text(size = 9)) + 
+  theme(axis.title.x = element_text(size = 9)) +
+  theme(panel.background = element_blank())
+
+p5 <- ggplot(elkmont, aes(x=date))
+p5 <- p5 + geom_line(aes(y=avglengthStay, color="Daily", linetype="Daily")) +
+  geom_line(data = elkmontM, aes(x=month, y=avglengthStay, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
+ scale_color_manual(
+        name = "Data", 
+        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Daily = "dashed", Monthly = "solid")) +
+  labs(x="", y="Average Length of Stay") + 
+  theme(axis.title.y = element_text(size = 9)) + 
+  theme(axis.title.x = element_text(size = 9)) +
+  theme(panel.background = element_blank())
+
+p6 <- ggplot(elkmont, aes(x=date))
+p6 <- p6 + geom_line(aes(y=avgdateDiff, color="Daily", linetype="Daily")) +
+  geom_line(data = elkmontM, aes(x=month, y=avgdateDiff, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
+ scale_color_manual(
+        name = "Data", 
+        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Daily = "dashed", Monthly = "solid")) +
+  labs(x="", y="Average Booking Horizon") + 
+  theme(axis.title.y = element_text(size = 9)) + 
+  theme(axis.title.x = element_text(size = 9)) +
+  theme(panel.background = element_blank())
+
+
+jpeg('elkmont.jpg')
+grid_arrange_shared_legend(p1, p2, p3, p4, p5, p6, ncol=2, nrow=3)
+dev.off()
+```
+
+```{r Moving Average}
+acf2(matherM$occupancy, main="ACF for 2007-2017")
+#ma_monthly(matherM, 3)
+matherM$month <- as.Date(matherM$month, "%Y-%m-%d")
+matherM$year <- year(matherM$month)
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+Window <- window(occupancy, start=c(2016,1))
+accuracy(ma(occupancy, 3),occupancy)
+fitted <- ma(occupancy, 3)
+e <- abs((occupancy-fitted)/occupancy) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+MA <- ma(Window, 3)
+pd<-funggcast(y,yfor)
+
+ggplot(matherM, aes(month, occupancy, color = "Data")) +
+  geom_line(stat="identity") +
+  geom_line(data=MA, aes()) +
+        scale_x_date(labels = date_format("%b/%y")) +
+    scale_fill_gradient(breaks=unique(matherM$year))
+
+
+ggplot(matherM, aes(date, avgfee)) + geom_line() + scale_x_date(format = "%Y-%m-%d")
+
+a <- autoplot(occupancy, type = "obs", mapping = aes(color="Data", linetype="Data")) +
+  autolayer(ma(Window,3), PI=FALSE) +
+  xlab("") + ylab("Occupancy (%)")  + 
+  scale_color_manual(
+        name = "Data", 
+        values = c(Data = "dimgrey", MA = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Data = "dashed", MA = "solid")) +
+  scale_y_continuous(breaks=seq(0,100,25))  +
+      ggtitle("Mather Campground") +
+   theme(panel.background = element_blank())
+```
+
+```{r}
+acf2(elkmontM$occupancy, main="ACF for 2007-2017")
+#ma_monthly(elkmontM, 3)
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+Window <- window(occupancy, start=c(2016,1))
+accuracy(ma(occupancy, 3),occupancy)
+fitted <- ma(occupancy, 3)
+e <- abs((occupancy-fitted)/occupancy) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+  autolayer(ma(Window,3), series="3-MA") +
+  xlab("") + ylab("") +
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "ma.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()
+
+```
+
+Our data is inevitably seasonal. Hence, we will run seasonal ARIMA model as the first step of analysis. Refer to https://onlinecourses.science.psu.edu/stat510/node/67/ for more information.
+We will test time-series analysis with one ID. We will run each ID separately as each facility has different length of time.
+
+Some useful sources for forecasting with R:
+http://a-little-book-of-r-for-time-series.readthedocs.io/en/latest/src/timeseries.html
+
+https://robjhyndman.com/hyndsight/dailydata/
+
+```{r ARIMA}
+#variables <- colnames(matherM)[5]
+#arima_monthly(matherM)
+#arima_monthly(elkmontM)
+
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2017,2))
+h <- length(occupancy) - length(train)
+arimafit <- auto.arima(train, lambda="auto", max.P=0, max.Q=0, seasonal = FALSE, trace = FALSE, 
+                              test = "adf",
+                              approximation= FALSE,
+                              allowmean = TRUE,
+                              allowdrift = TRUE)
+ARIMA <- forecast(arimafit, h=h)
+summary(ARIMA)
+forecast::accuracy(ARIMA$model$fitted, occupancy)
+fitted <- ARIMA$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- autoplot(occupancy) +
+      autolayer(ARIMA, series="ARIMA", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Mather Campground")
+a
+
+##Elkmont
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+ARIMA <- forecast(auto.arima(train, lambda="auto", max.P=0, max.Q=0, seasonal = FALSE, trace = FALSE, 
+                              ic = "bic", 
+                              test = "adf",
+                              approximation= FALSE,
+                              allowmean = TRUE,
+                              allowdrift = TRUE), h=h)
+summary(ARIMA)
+
+forecast::accuracy(ARIMA$model$fitted, occupancy)
+
+fitted <- ARIMA$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(ARIMA, series="ARIMA", alpha=0.5) +
+      xlab("") + ylab("")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "arima.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+```
+
+```{r SARIMA}
+#variables <- colnames(matherM)[5]
+#arima_monthly(matherM)
+#arima_monthly(elkmontM)
+
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+ARIMA <- forecast(auto.arima(train, lambda="auto", 
+                             trace = FALSE, 
+                              ic = "bic", 
+                              test = "adf",
+                              approximation= FALSE,
+                              allowmean = TRUE,
+                              allowdrift = TRUE), h=h)
+summary(ARIMA)
+forecast::accuracy(ARIMA$model$fitted, occupancy)
+fitted <- ARIMA$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- autoplot(occupancy) +
+      autolayer(ARIMA, series="SARIMA", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Mather Campground")
+
+
+##Elkmont
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+ARIMA <- forecast(auto.arima(train, 
+                                  trace = FALSE, 
+                                  ic = "bic", 
+                                  test = "adf",
+                                  approximation= FALSE,
+                                  allowmean = TRUE,
+                                  allowdrift = TRUE), h=h)
+summary(ARIMA)
+
+forecast::accuracy(ARIMA$model$fitted, occupancy)
+
+fitted <- ARIMA$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(ARIMA, series="SARIMA", alpha=0.5) +
+      xlab("") + ylab("")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "sarima.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+```
+
+
+
+```{r GARCH}
+library(tseries)
+variables <- colnames(matherM)[5]
+garch_monthly(matherM)
+garch_monthly(elkmontM)
+```
+
+```{r ETS}
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+
+ETS <- forecast(ets(train), h=h)
+forecast::accuracy(ETS$model$fitted, occupancy)
+
+fitted <- ETS$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- forecast::autoplot(occupancy, series="Data") +
+      autolayer(ETS, series="ETS", alpha=0.5, size=2) +
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      xlab("") + ylab("Occupancy (%)")  + 
+      ggtitle("Mather Campground")
+
+
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+
+ETS <- forecast(ets(train), h=h)
+forecast::accuracy(ETS$model$fitted, occupancy)
+
+fitted <- ETS$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(ETS, series="ETS", alpha=0.5) +
+      xlab("") + ylab("")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "ets.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+
+```
+
+```{r}
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+ARIMA <- forecast(auto.arima(train, 
+                                  trace = FALSE, 
+                                  ic = "bic", 
+                                  test = "adf",
+                                  approximation= FALSE,
+                                  allowmean = TRUE,
+                                  allowdrift = TRUE), h=h)
+ETS <- forecast(ets(train), h=h)
+NNAR <- forecast(nnetar(train, P=8), h=h)
+
+Combination <- (ETS[["mean"]] + ARIMA[["mean"]] +
+  NNAR[["mean"]])/3
+
+forecast::accuracy(Combination, occupancy)
+fitted <- Combination
+e <- abs((occupancy[107:129]-fitted)/occupancy[107:129]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+abs((occupancy[107:129]-fitted))/occupancy[107:129]
+
+a<- autoplot(occupancy) +
+        autolayer(Combination, series="Combination", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+  ggtitle("Mather Campground")
+
+
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+ARIMA <- forecast(auto.arima(train, 
+                                  trace = FALSE, 
+                                  ic = "bic", 
+                                  test = "adf",
+                                  approximation= FALSE,
+                                  allowmean = TRUE,
+                                  allowdrift = TRUE), h=h)
+ETS <- forecast(ets(train), h=h)
+NNAR <- forecast(nnetar(train, P=8),h=h)
+
+Combination <- (ETS[["mean"]] + ARIMA[["mean"]] +
+  NNAR[["mean"]])/3
+
+forecast::accuracy(Combination, occupancy)
+fitted <- Combination
+e <- abs((occupancy[107:128]-fitted)/occupancy[107:128]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+e
+
+b <- autoplot(occupancy) +
+      autolayer(ETS, series="Combination", alpha=0.5) +
+      xlab("") + ylab("")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "combination.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+```
+
+```{r}
+# Fit MLP
+mlp.fit <- mlp(ts(elkmontM$occupancy), m=12, lags=12, outplot = TRUE)
+jpeg('avgOccu_NN.jpg')
+plot(mlp.fit)
+dev.off()
+print(mlp.fit)
+
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+fit <- nnetar(train, lambda = "auto", repeats = 100)
+autoplot(forecast(fit, h=h))
+nnetar(train, P=8, lambda = "auto", repeats = 100)
+NNAR <- forecast(nnetar(train, P=8, lambda = "auto", repeats = 100), h=h)
+
+forecast::accuracy(NNAR$fitted, occupancy)
+
+fitted <- NNAR$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- autoplot(occupancy) +
+      autolayer(NNAR, series="NNAR", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Mather Campground")
+
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+fit <- nnetar(train, lambda = "auto", repeats = 100)
+autoplot(forecast(fit, h=h))
+nnetar(train, P=8, lambda = "auto", repeats = 100)
+NNAR <- forecast(nnetar(train, P=8, lambda = "auto", repeats = 100), h=h)
+
+forecast::accuracy(NNAR$fitted, occupancy)
+
+fitted <- NNAR$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(NNAR, series="NNAR", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "nnar.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+
+
+
+
+```
+
+```{r}
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+
+arf <- arfima(train, order = c(4,0,1), numeach = c(3,3))
+
+
+
+spec = ugarchspec()
+garch <- ugarchfit(train, spec=spec)
+GARCH <- ugarchforecast(garch, n.ahead=h)
+
+forecast::accuracy(GARCH@forecast$seriesFor, occupancy)
+
+fitted <- GARCH@forecast$seriesFor
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- autoplot(occupancy) +
+      autolayer(GARCH@forecast$seriesFor, series="NNAR", PI=FALSE) +
+      xlab("Year") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Mather Campground")
+
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+NNAR <- forecast(nnetar(train), h=h)
+
+forecast::accuracy(NNAR$fitted, occupancy)
+
+fitted <- NNAR$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(NNAR, series="NNAR", PI=FALSE) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "nnar.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+```

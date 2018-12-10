@@ -1,0 +1,198 @@
+---
+title: "02_data_wrangling"
+---
+This script executes the followings:
+
+1. subset only campsite users
+2. calculate order date - start date (how far in adanvance people book)
+3. calculate length of stay
+4. calculate occupancy/fee/total paid per campsite
+5. make the data into panel format
+
+```{r data reading and subsetting}
+require(readr)
+require(data.table)
+require(psych)
+require(dplyr)
+require(tidyr)
+require(reshape2)
+require(lubridate)
+require(forecast)
+
+fullData <- fread("fullData.csv")
+count(fullData, 'RegionDescription') # 38 national parks
+count(fullData, 'Park') # 148 facilities
+count(fullData, 'HisoricalReservationID') # 4884534 obersvations
+
+## Remove non-campsite - keep only overnight 
+camp <- fullData[grepl("Overnight", fullData[["UseType"]]), ] # data size decreased from 4,884,534 to 4,576,229
+count(camp, 'RegionDescription') # 37 national parks
+count(camp, 'Park') # 133 facilities
+```
+
+```{r How many dates do people book in advance}
+head(camp)
+
+#calculate difference between the reservation date and the start date
+camp$dateDiff <- as.Date(as.character(camp$StartDate), format="%Y-%m-%d") - as.Date(as.character(camp$OrderDate), format="%Y-%m-%d")
+
+summary(camp$dateDiff)
+
+camp$dateDiff <- as.numeric(camp$dateDiff)+1 #if a person booked on the same date, the difference is -1. Hence, we add 1 to the difference.
+
+negative <- camp[camp$dateDiff<0 ,] #there are 327 negative date differences between the reservation and the start date. This could be system error.
+rm(negative)
+```
+
+```{r length of stay}
+#calculate difference between the end date and the start date
+camp$lengthStay <- as.Date(as.character(camp$EndDate), format="%Y-%m-%d") - as.Date(as.character(camp$StartDate), format="%Y-%m-%d")
+
+camp$lengthStay <- as.numeric(camp$lengthStay) #number of nights stayed
+summary(camp$lengthStay) # no negative length of stay
+
+#we eliminate 327 elements with negative dateDiff from the dataset.
+camp2 <- camp[camp$dateDiff>=0 ,]
+#we eliminate those that do not have end date (one time events)- from 4575902 to 3700082
+camp2 <- camp2[camp2$EndDate>0 ,]
+
+#only keep relevant variables - 21 variables
+camp2 <- select(camp2, HistoricalReservationID, RegionCode, RegionDescription, ParentLocationID, ParentLocation, LegacyFacilityID, Park, SiteType, ProductID, FacilityID, FacilityZIP, FacilityState, CustomerZIP, CustomerState, CustomerCountry, UseFee, TotalPaid, StartDate, EndDate, OrderDate, NumberOfPeople, dateDiff, lengthStay)
+
+count(camp2, RegionDescription) #33
+count(camp2, Park) #115
+```
+
+```{r Let's explore with one facility and fraction of its data}
+sample_test <- select(camp2[which(camp2$Park=="SUNSET CAMPGROUND"),], HistoricalReservationID, ParentLocation, ProductID, Park, StartDate, EndDate, OrderDate, UseFee, TotalPaid, NumberOfPeople, dateDiff, lengthStay) #select key variables
+
+df <- sample_test
+#make the data into panel format and create date variable which is the list of dates that were occupied
+df <- sample_frac(df, 0.2, replace = TRUE)
+df<-df[,cbind(.SD, date=(as.Date(StartDate)):as.Date(EndDate)),by="HistoricalReservationID"] 
+df$dates <- as.Date(df$date, origin = "1970-01-01") #format to date format
+#df[,dateInterval:=interval(df$StartDate,df$EndDate)]
+
+#calculate average daily fee per transaction
+df$averageFee <- df$UseFee/df$lengthStay
+
+df <- df[order(df$dates),] #sort by dates
+
+#create aggregate sums for number of people, occupancy, total paid amount per date for each order date
+sum <- df %>%
+  group_by(dates) %>%
+   group_by(OrderDate) %>%
+      mutate(totalNumberOfPeople = sum(NumberOfPeople)) %>%
+      mutate(occupancy = length(unique(ProductID))) %>%
+      mutate(AggPaid = sum(TotalPaid))
+
+#remove tested datasets
+rm(fullData, camp, sample_test, sum2, sum, test)
+```
+
+
+```{r apply the same procedure to all facilities}
+a <- NULL
+list <- unique(camp2$Park)[1:30]
+#list <- unique(camp2$Park)[31:60]
+#list <- unique(camp2$Park)[61:115]
+
+rm(camp, fullData)
+
+startTime <- Sys.time()
+cat("startTime is:", startTime)
+
+for (name in list){
+  df <- select(camp2[which(camp2$Park==name),], HistoricalReservationID, ParentLocation, ProductID, Park, StartDate, EndDate, OrderDate, UseFee, TotalPaid, NumberOfPeople, dateDiff, lengthStay) 
+  df<-df[,cbind(.SD, date=(as.Date(StartDate)):as.Date(EndDate)),by="HistoricalReservationID"]
+  df$dates <- as.Date(df$date, origin = "1970-01-01") #format to date format
+  df <- df[order(df$dates),] #sort by dates
+  df <- df %>%
+    group_by(dates) %>%
+      group_by(OrderDate) %>%
+        mutate(totalNumberOfPeople = sum(NumberOfPeople)) %>%
+        mutate(occupancy = length(unique(ProductID))) %>%
+        mutate(AggPaid = sum(TotalPaid))
+  a <- bind_rows(a, df)
+}
+
+fwrite(a, file = "full_panel.csv")
+endTime <-  Sys.time()
+runningTime <- endTime - startTime
+print (startTime)
+print (endTime)
+print (runningTime)
+cat ("LBJ final name is:", name)
+
+a <- NULL
+list <- unique(camp2$Park)[31:60]
+#list <- unique(camp2$Park)[61:115]
+
+startTime <- Sys.time()
+cat("startTime is:", startTime)
+
+for (name in list){
+  df <- select(camp2[which(camp2$Park==name),], HistoricalReservationID, ParentLocation, ProductID, Park, StartDate, EndDate, OrderDate, UseFee, TotalPaid, NumberOfPeople, dateDiff, lengthStay) 
+  df<-df[,cbind(.SD, date=(as.Date(StartDate)):as.Date(EndDate)),by="HistoricalReservationID"]
+  df$dates <- as.Date(df$date, origin = "1970-01-01") #format to date format
+  df <- df[order(df$dates),] #sort by dates
+  df <- df %>%
+    group_by(dates) %>%
+      group_by(OrderDate) %>%
+        mutate(totalNumberOfPeople = sum(NumberOfPeople)) %>%
+        mutate(occupancy = length(unique(ProductID))) %>%
+        mutate(AggPaid = sum(TotalPaid))
+  a <- bind_rows(a, df)
+}
+
+fwrite(a, file = "full_panel2.csv")
+endTime <-  Sys.time()
+runningTime <- endTime - startTime
+print (startTime)
+print (endTime)
+print (runningTime)
+cat ("LBJ final name is:", name)
+
+a <- NULL
+list <- unique(camp2$Park)[61:115]
+
+startTime <- Sys.time()
+cat("startTime is:", startTime)
+
+for (name in list){
+  df <- select(camp2[which(camp2$Park==name),], HistoricalReservationID, ParentLocation, ProductID, Park, StartDate, EndDate, OrderDate, UseFee, TotalPaid, NumberOfPeople, dateDiff, lengthStay) 
+  df<-df[,cbind(.SD, date=(as.Date(StartDate)):as.Date(EndDate)),by="HistoricalReservationID"]
+  df$dates <- as.Date(df$date, origin = "1970-01-01") #format to date format
+  df <- df[order(df$dates),] #sort by dates
+  df <- df %>%
+    group_by(dates) %>%
+      group_by(OrderDate) %>%
+        mutate(totalNumberOfPeople = sum(NumberOfPeople)) %>%
+        mutate(occupancy = length(unique(ProductID))) %>%
+        mutate(AggPaid = sum(TotalPaid))
+  a <- bind_rows(a, df)
+}
+
+fwrite(a, file = "full_panel3.csv")
+endTime <-  Sys.time()
+runningTime <- endTime - startTime
+print (startTime)
+print (endTime)
+print (runningTime)
+cat ("LBJ final name is:", name)
+```
+
+```{r combine the datasets}
+rm(a, df)
+a <- fread("full_panel.csv")
+b <- fread("full_panel2.csv")
+c <- fread("full_panel3.csv")
+
+final <- bind_rows(a, b, c)
+fwrite(final, file = "full_panel.csv")
+rm(a, b, c)
+
+head(final)
+```
+
+

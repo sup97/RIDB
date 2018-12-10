@@ -1,0 +1,74 @@
+---
+title: "0`_loading_and_subsetting"
+---
+This is to create the full file of the RIDB data. Datasets from 2006 to 2017 are aggreagated to create full dataset (fullData). As the datasets were too big to run at once, they are run 
+
+```{r}
+library(readr)
+library(data.table)
+
+setwd("C:/Users/soyou/Box Sync/RIDB/Data")
+X2006 <- fread("C:/Users/soyou/Box Sync/RIDB/Data/Data2006.csv")
+X2007 <- fread("C:/Users/soyou/Box Sync/RIDB/Data/Data2007.csv")
+X2008 <- fread("C:/Users/soyou/Box Sync/RIDB/Data/Data2008.csv")
+X2009 <- fread("C:/Users/soyou/Box Sync/RIDB/Data/Data2009.csv")
+X2010 <- fread("C:/Users/soyou/Box Sync/RIDB/Data/Data2010.csv")
+
+##Only choose National Parks campsites
+X2006 <- X2006[grepl("National Park", X2006[["RegionDescription"]]), ]
+X2007 <- X2007[grepl("National Park", X2007[["RegionDescription"]]), ]
+X2008 <- X2008[grepl("National Park", X2008[["RegionDescription"]]), ]
+X2009 <- X2009[grepl("National Park", X2009[["RegionDescription"]]), ]
+X2010 <- X2010[grepl("National Park", X2010[["RegionDescription"]]), ]
+
+fullDataA <- rbind(X2006, X2007, X2008, X2009, X2010)
+fwrite(fullDataA, file = "C:/Users/soyou/Box Sync/RIDB/Data/fullDataA.csv")
+rm(list=ls())
+```
+
+```{r}
+X2011 <- fread("C:/Users/soyou/Box Sync/RIDB/Data/Data2011.csv")
+X2012 <- fread("C:/Users/soyou/Box Sync/RIDB/Data/Data2012.csv")
+X2013 <- fread("C:/Users/soyou/Box Sync/RIDB/Data/Data2013.csv")
+X2014 <- fread("C:/Users/soyou/Box Sync/RIDB/Data/Data2014.csv")
+
+##Only choose National Parks campsites
+X2011 <- X2011[grepl("National Park", X2011[["RegionDescription"]]), ]
+X2012 <- X2012[grepl("National Park", X2012[["RegionDescription"]]), ]
+X2013 <- X2013[grepl("National Park", X2013[["RegionDescription"]]), ]
+X2014 <- X2014[grepl("National Park", X2014[["RegionDescription"]]), ]
+
+fullDataB <- rbind(X2011, X2012, X2013, X2014)
+fwrite(fullDataB, file = "C:/Users/soyou/Box Sync/RIDB/Data/fullDataB.csv")
+rm(list=ls())
+```
+
+```{r}
+X2015 <- fread("C:/Users/soyou/Box Sync/RIDB/Data/Data2015.csv")
+X2016 <- fread("C:/Users/soyou/Box Sync/RIDB/Data/Data2016.csv")
+X2017 <- fread("C:/Users/soyou/Box Sync/RIDB/Data/Data2017.csv")
+
+##Only choose National Parks campsites
+X2015 <- X2015[grepl("National Park", X2015[["RegionDescription"]]), ]
+X2016 <- X2016[grepl("National Park", X2016[["RegionDescription"]]), ]
+X2017 <- X2017[grepl("National Park", X2017[["RegionDescription"]]), ]
+
+library(bit64)
+X2015$HistoricalReservationID <- as.integer64(X2015$HistoricalReservationID)
+fullDataC <- rbind(X2015, X2016, X2017)
+fwrite(fullDataC, file = "C:/Users/soyou/Box Sync/RIDB/Data/fullDataC.csv")
+rm(list=ls())
+```
+
+```{r combine the three datasets}
+fullDataA <- fread("C:/Users/soyou/Box Sync/RIDB/Data/fullDataA.csv")
+fullDataB <- fread("C:/Users/soyou/Box Sync/RIDB/Data/fullDataB.csv")
+fullDataC <- fread("C:/Users/soyou/Box Sync/RIDB/Data/fullDataC.csv")
+
+fullDataB$HistoricalReservationID <- as.integer64(fullDataB$HistoricalReservationID)
+fullData <- rbind(fullDataA, fullDataB, fullDataC)
+fwrite(fullData, file = "C:/Users/soyou/Box Sync/RIDB/Data/fullData.csv")
+rm(fullDataA, fullDataB, fullDataC)
+```
+
+
