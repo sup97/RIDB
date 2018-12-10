@@ -33,7 +33,18 @@ library(scales)
 library(midasr)
 ```
 
-#Forecasting - Elkmont from Great Smoky Mountains and Mather from Grand Canyon
+#Forecasting
+
+Get five campgrounds based on RIDB # of Sites
+Blackwoods and Flamingo were on top of the list manifested odd occupancy, hence dropped
+
+MATHER CAMPGROUND	Grand Canyon	328	307	Open Year Round	2	365
+MORAINE PARK CAMPGROUND	Rocky Mountain	247	236	Open Year Round	4	365
+UPPER PINES	Yosemite	238	235	Open Year Round	1	365
+BIG MEADOWS	Shenandoah	221	221	Open March 30 - November 12	4	365
+ELKMONT CAMPGROUND	Great Smoky Mountains	220	211	Open 3/9 - 11/25	4	365
+
+##Elkmont from Great Smoky Mountains and Mather from Grand Canyon
 
 Yosemite has the most number of campsites (902). However, only 84% is on RIDB (902 out of 1073). It has 8 campgrounds.
 
@@ -41,334 +52,90 @@ Mather is the biggest campground on RIDB.
 
 Great Smoky has 17 campgrounds and 736 out of 750 cmapsites (second largest) on RIDB (98%). Elkmont is the biggest campground in Great Smoky.
 
+```{r format campground data for forecasting}
+unique(data$id[data$Campground=="MATHER CAMPGROUND"]) #65
+formatCamp(65)
+matherD <- fread("descriptive_65.csv")
+mather <- fread("campground_65.csv")
+matherM <- fread("campground_monthly_65.csv")
+
+unique(data$id[data$Campground=="MORAINE PARK CAMPGROUND"]) #67
+formatCamp(67)
+moraineD <- fread("descriptive_67.csv")
+moraine <- fread("campground_67.csv")
+moraineM <- fread("campground_monthly_67.csv")
+
+unique(data$id[data$Campground=="UPPER PINES"]) #106
+formatCamp(106)
+upperD <- fread("descriptive_106.csv")
+upper <- fread("campground_106.csv")
+upperM <- fread("campground_monthly_106.csv")
+
+unique(data$id[data$Campground=="BIG MEADOWS"]) #7
+formatCamp(7)
+meadowsD <- fread("descriptive_7.csv")
+meadows <- fread("campground_7.csv")
+meadowsM <- fread("campground_monthly_7.csv")
+
+unique(data$id[data$Campground=="ELKMONT CAMPGROUND"]) #42
+formatCamp(42)
+elkmontD <- fread("descriptive_42.csv")
+elkmont <- fread("campground_42.csv")
+elkmontM <- fread("campground_monthly_42.csv")
+
+#unique(data$id[data$Campground=="BLACKWOODS CAMPGROUND"]) #11
+#formatCamp(11)
+#black <- fread("campground_monthly_11.csv") #weird occupancy
+
+#unique(data$id[data$Campground=="FLAMINGO"]) #45
+#formatCamp(45)
+#flamingo <- fread("campground_monthly_45.csv") #weird occupancy
+```
+
+```{r summary tables}
+summary(matherD)
+summary(elkmontD)
+summary(meadowsD)
+summary(moraineD)
+summary(upperD)
+```
+
+
+```{r occupancy graphs}
+p1 <- campMGraph(mather, matherM)+ggtitle("Mather, Grand Canyon")
+p2 <- campMGraph(elkmont, elkmontM)+ggtitle("Elkmont, Great Smoky Mountains")
+p3 <- campMGraph(meadows, meadowsM)+ggtitle("Big Meadows, Shenandoah")
+p4 <- campMGraph(moraine, moraineM)+ggtitle("Moraine, Rocky Mountain")
+p5 <- campMGraph(upper, upperM)+ggtitle("Upper Pines, Yosemite")
+
+jpeg('occupancy.jpg',
+     width = 800, height = 450, units = "px", pointsize = 11,
+     quality = 100)
+grid.arrange(p1, p2, p3, p4, p5, ncol=3, nrow=2)
+dev.off()
+```
+
+
 ```{r Mather - Grand Canyon}
-#unique(timeSeries$id[timeSeries$Campground=="MATHER CAMPGROUND"]) #tow campgournds: 65 71
-#ID = 65 is Mather Campground
-data <- fread("final_data.csv")
+## Unit root test
+#install.packages("fUnitRoots") - The 'fUnitroots' provides four addons for analyzing trends and unit roots in financial time series: (i) functions for the density and probability of the augmented Dickey-Fuller Test, (ii) functions for the density and probability of MacKinnon's unit root test statistics, (iii) reimplementations for the ADF and MacKinnon Test, and (iv) an 'urca' Unit Root Test Interface for Pfaff's unit root test suite.
+library(fUnitRoots)
+library(uroot)
 
-mather <- data[data$id==65 & as.Date(data$date, format="%Y-%m-%d")<"2018-01-01",] 
-min(mather$date) #"2007-03-01"
-max(mather$date) #"2017-12-01" 
-#let's drop December 1st 
-mather <- mather[as.Date(mather$date)<"2017-12-01",] 
-check <- mather[mather$occupancy>=1.0,]
-summary(mather)
+#A collection and description of functions for unit root testing. The family of tests includes ADF tests based on Banerjee's et al. tables and on J.G. McKinnons' numerical distribution functions.
 
-mather$date <- as.Date(mather$date, format = "%Y-%m-%d")
-mather <- mather %>%
-  complete(date = seq(as.Date("2007-03-01"), as.Date("2017-11-30"), by="day")) %>%
-    mutate(Campground = na.locf(Campground, na.rm=FALSE)) %>% 
-    mutate(Park = na.locf(Park, na.rm=FALSE)) %>% 
-    mutate(id = na.locf(id, na.rm=FALSE)) %>%
-    mutate(occupancy = replace_na(occupancy, 0)) %>%
-    mutate(avgfee = replace_na(avgfee, 0)) %>%
-    mutate(aggPaid = replace_na(aggPaid, 0)) %>%
-    mutate(avgPaid = replace_na(avgPaid, 0)) %>%
-    mutate(avgNumberOfPeople = replace_na(avgNumberOfPeople, 0)) %>%
-    mutate(totalNumberOfPeople = replace_na(totalNumberOfPeople, 0)) %>%
-    mutate(avgdateDiff = replace_na(avgdateDiff, 0)) %>%
-    mutate(avglengthStay = replace_na(avglengthStay, 0)) %>%
-    mutate(numOfSites = na.locf(numOfSites, na.rm=FALSE)) %>% 
-    mutate(recGovNumOfSites = na.locf(recGovNumOfSites, na.rm=FALSE)) %>%
-    distinct(date, .keep_all=TRUE) %>%
-  mutate(occupancy = 100*occupancy)
-fwrite(mather, "mather.csv")
+occupancy <- ts(matherM$occupancy, frequency = 12)
+ocsb.test(occupancy, lag.method = c("fixed", "AIC", "BIC", "AICc"), maxlag = 12)
 
-mather$month <- format(as.Date(mather$date, format = "%Y-%m-%d"), "%Y-%m")
-matherM <- mather %>%
-    group_by(month) %>%
-    mutate(totalNumberOfPeople = sum(totalNumberOfPeople)) %>%
-    mutate(avgNumberOfPeople = mean(avgNumberOfPeople)) %>%
-    mutate(occupancy = mean(occupancy)) %>%
-    mutate(avgPaid = sum(avgPaid)) %>%
-    mutate(avgfee = mean(avgfee)) %>%
-    mutate(avglengthStay = mean(avglengthStay)) %>%
-    mutate(avgdateDiff = mean(avgdateDiff))
 
-matherM <- matherM %>%
-  distinct(month, .keep_all=TRUE)
-
-matherM$month <- as.yearmon(matherM$month, "%Y-%m")
-matherM$month <- as.Date(matherM$month)
-
-fwrite(matherM, "mather_monthly.csv")
+unitTest(matherM)
+unitTest(elkmontM)
+unitTest(meadowsM)
+unitTest(moraineM)
+unitTest(upperM)
 ```
 
 ```{r elkmont}
-#unique(timeSeries$id[timeSeries$Park=="Great Smoky Mountains"]) #17 campgrounds: 42  95  17  18  96  43  23  24  37   6  28   5  29   2  83 103  22
-#ID = 42 is Elkmont Campground
-
-elkmont <- data[data$id==42 & as.Date(data$date, format="%Y-%m-%d")<"2018-01-01",] 
-min(elkmont$date) #"2007-03-01"
-max(elkmont$date) #"2017-11-01" 
-#let's drop November 1st 
-elkmont <- elkmont[as.Date(elkmont$date)<"2017-11-01",] 
-check <- elkmont[elkmont$occupancy>1.0,]
-summary(elkmont)
-
-elkmont$date <- as.Date(elkmont$date, format = "%Y-%m-%d")
-elkmont <- elkmont %>%
-  complete(date = seq(as.Date("2007-03-10"), as.Date("2017-10-30"), by="day")) %>%
-    mutate(Campground = na.locf(Campground, na.rm=FALSE)) %>% 
-    mutate(Park = na.locf(Park, na.rm=FALSE)) %>% 
-    mutate(id = na.locf(i, na.rm=FALSE)) %>%
-    mutate(occupancy = replace_na(occupancy, 0)) %>%
-    mutate(avgfee = replace_na(avgfee, 0)) %>%
-    mutate(aggPaid = replace_na(aggPaid, 0)) %>%
-    mutate(avgPaid = replace_na(avgPaid, 0)) %>%
-    mutate(avgNumberOfPeople = replace_na(avgNumberOfPeople, 0)) %>%
-    mutate(totalNumberOfPeople = replace_na(totalNumberOfPeople, 0)) %>%
-    mutate(avgdateDiff = replace_na(avgdateDiff, 0)) %>%
-    mutate(avglengthStay = replace_na(avglengthStay, 0)) %>%
-    mutate(numOfSites = na.locf(numOfSites, na.rm=FALSE)) %>% 
-    mutate(recGovNumOfSites = na.locf(recGovNumOfSites, na.rm=FALSE)) %>%
-  mutate(occupancy = 100*occupancy) %>%
-    distinct(date, .keep_all=TRUE)
-
-fwrite(elkmont, "elkmont.csv")
-
-elkmont$month <- format(as.Date(elkmont$date, format = "%Y-%m-%d"), "%Y-%m")
-elkmontM <- elkmont %>%
-    group_by(month) %>%
-    mutate(totalNumberOfPeople = sum(totalNumberOfPeople)) %>%
-    mutate(avgNumberOfPeople = mean(avgNumberOfPeople)) %>%
-    mutate(occupancy = mean(occupancy)) %>%
-    mutate(avgPaid = sum(avgPaid)) %>%
-    mutate(avgfee = mean(avgfee)) %>%
-    mutate(avglengthStay = mean(avglengthStay)) %>%
-    mutate(avgdateDiff = mean(avgdateDiff)) %>%
-  distinct(month, .keep_all=TRUE)
-
-elkmontM$month <- as.yearmon(elkmontM$month, "%Y-%m")
-elkmontM$month <- as.Date(elkmontM$month)
-
-fwrite(elkmontM, "elkmont_monthly.csv")
-```
-
-```{r grid arrange function}
-grid_arrange_shared_legend <- function(..., ncol = length(list(...)), nrow = 1, position = c("bottom", "right")) {
-	plots <- list(...)
-	position <- match.arg(position)
-	g <- ggplotGrob(plots[[1]] + 
-	theme(legend.position = position))$grobs
-	legend <- g[[which(sapply(g, function(x) x$name) == "guide-box")]]
-	lheight <- sum(legend$height)
-	lwidth <- sum(legend$width)
-	gl <- lapply(plots, function(x) x +
-	theme(legend.position = "none"))
-	gl <- c(gl, ncol = ncol, nrow = nrow)
-
-	combined <- switch(position,
-	                   "bottom" = arrangeGrob(do.call(arrangeGrob, gl), 
-	                   legend,ncol = 1,
-					heights = unit.c(unit(1, "npc") - lheight, lheight)),
-					"right" = arrangeGrob(do.call(arrangeGrob, gl),
-				  legend, ncol = 2,
-					widths = unit.c(unit(1, "npc") - lwidth, lwidth)))
-
-	grid.newpage()
-	grid.draw(combined)
-
-	# return gtable invisibly
-	invisible(combined)
-}
-```
-
-```{r READ DATA}
-mather <- fread("mather.csv")
-matherM <- fread("mather_monthly.csv")
-elkmont <- fread("elkmont.csv")
-elkmontM <- fread("elkmont_monthly.csv")
-```
-
-
-```{r mather reservation trend graphs}
-mather$date <- as.Date(mather$date, format = "%Y-%m-%d")
-matherM$month <- as.Date(matherM$month, format = "%Y-%m-%d")
-
-p1 <- ggplot(mather, aes(x=date)) +
-  geom_line(aes(y=occupancy, color="Daily", linetype="Daily")) +
-  geom_line(data = matherM, aes(x=month, y=occupancy, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
- scale_color_manual(
-        name = "Data", 
-        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
-  scale_linetype_manual(
-        name = "Data", 
-        values = c(Daily = "dashed", Monthly = "solid")) +
-  labs(x="", y="Average Occupancy (%)") + 
-  theme(axis.title.y = element_text(size = 9)) + 
-  theme(axis.title.x = element_text(size = 9))  +
-  theme(panel.background = element_blank())
-
-p2 <- ggplot(mather, aes(x=date))
-p2 <- p2 + geom_line(aes(y=totalNumberOfPeople, color="Daily", linetype="Daily")) +
-  geom_line(data = matherM, aes(x=month, y=totalNumberOfPeople, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
- scale_color_manual(
-        name = "Data", 
-        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
-  scale_linetype_manual(
-        name = "Data", 
-        values = c(Daily = "dashed", Monthly = "solid")) +
-  labs(x="", y="Average Number of People") + 
-  theme(axis.title.y = element_text(size = 9)) + 
-  theme(axis.title.x = element_text(size = 9)) +
-  theme(panel.background = element_blank())
-
-p3 <- ggplot(mather, aes(x=date))
-p3 <- p3 + geom_line(aes(y=avgfee, color="Daily", linetype="Daily")) +
-  geom_line(data = matherM, aes(x=month, y=avgfee, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
- scale_color_manual(
-        name = "Data", 
-        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
-  scale_linetype_manual(
-        name = "Data", 
-        values = c(Daily = "dashed", Monthly = "solid")) +
-  labs(x="", y="Average Fee (USD)") + 
-  theme(axis.title.y = element_text(size = 9)) + 
-  theme(axis.title.x = element_text(size = 9)) +
-  theme(panel.background = element_blank())
-
-p4 <- ggplot(mather, aes(x=date))
-p4 <- p4 + geom_line(aes(y=avgPaid, color="Daily", linetype="Daily")) +
-  geom_line(data = matherM, aes(x=month, y=avgPaid, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
- scale_color_manual(
-        name = "Data", 
-        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
-  scale_linetype_manual(
-        name = "Data", 
-        values = c(Daily = "dashed", Monthly = "solid")) +
-  labs(x="", y="Average Amount Paid (USD)") + 
-  theme(axis.title.y = element_text(size = 9)) + 
-  theme(axis.title.x = element_text(size = 9)) +
-  theme(panel.background = element_blank())
-
-p5 <- ggplot(mather, aes(x=date))
-p5 <- p5 + geom_line(aes(y=avglengthStay, color="Daily", linetype="Daily")) +
-  geom_line(data = matherM, aes(x=month, y=avglengthStay, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
- scale_color_manual(
-        name = "Data", 
-        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
-  scale_linetype_manual(
-        name = "Data", 
-        values = c(Daily = "dashed", Monthly = "solid")) +
-  labs(x="", y="Average Length of Stay") + 
-  theme(axis.title.y = element_text(size = 9)) + 
-  theme(axis.title.x = element_text(size = 9)) +
-  theme(panel.background = element_blank())
-
-p6 <- ggplot(mather, aes(x=date))
-p6 <- p6 + geom_line(aes(y=avgdateDiff, color="Daily", linetype="Daily")) +
-  geom_line(data = matherM, aes(x=month, y=avgdateDiff, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
- scale_color_manual(
-        name = "Data", 
-        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
-  scale_linetype_manual(
-        name = "Data", 
-        values = c(Daily = "dashed", Monthly = "solid")) +
-  labs(x="", y="Average Booking Horizon") + 
-  theme(axis.title.y = element_text(size = 9)) + 
-  theme(axis.title.x = element_text(size = 9)) +
-  theme(panel.background = element_blank())
-
-
-jpeg('mather.jpg')
-grid_arrange_shared_legend(p1, p2, p3, p4, p5, p6, ncol=2, nrow=3)
-dev.off()
-```
-
-```{r elkmont reservation trend graphs}
-##elkmont
-elkmont$date <- as.Date(elkmont$date, format = "%Y-%m-%d")
-elkmontM$month <- as.Date(elkmontM$month, format = "%Y-%m-%d")
-
-p1 <- ggplot(elkmont, aes(x=date)) +
-  geom_line(aes(y=occupancy, color="Daily", linetype="Daily")) +
-  geom_line(data = elkmontM, aes(x=month, y=occupancy, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
- scale_color_manual(
-        name = "Data", 
-        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
-  scale_linetype_manual(
-        name = "Data", 
-        values = c(Daily = "dashed", Monthly = "solid")) +
-  labs(x="", y="Average Occupancy (%)") + 
-  theme(axis.title.y = element_text(size = 9)) + 
-  theme(axis.title.x = element_text(size = 9))  +
-  theme(panel.background = element_blank())
-
-p2 <- ggplot(elkmont, aes(x=date))
-p2 <- p2 + geom_line(aes(y=totalNumberOfPeople, color="Daily", linetype="Daily")) +
-  geom_line(data = elkmontM, aes(x=month, y=totalNumberOfPeople, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
- scale_color_manual(
-        name = "Data", 
-        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
-  scale_linetype_manual(
-        name = "Data", 
-        values = c(Daily = "dashed", Monthly = "solid")) +
-  labs(x="", y="Average Number of People") + 
-  theme(axis.title.y = element_text(size = 9)) + 
-  theme(axis.title.x = element_text(size = 9)) +
-  theme(panel.background = element_blank())
-
-p3 <- ggplot(elkmont, aes(x=date))
-p3 <- p3 + geom_line(aes(y=avgfee, color="Daily", linetype="Daily")) +
-  geom_line(data = elkmontM, aes(x=month, y=avgfee, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
- scale_color_manual(
-        name = "Data", 
-        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
-  scale_linetype_manual(
-        name = "Data", 
-        values = c(Daily = "dashed", Monthly = "solid")) +
-  labs(x="", y="Average Fee (USD)") + 
-  theme(axis.title.y = element_text(size = 9)) + 
-  theme(axis.title.x = element_text(size = 9)) +
-  theme(panel.background = element_blank())
-
-p4 <- ggplot(elkmont, aes(x=date))
-p4 <- p4 + geom_line(aes(y=avgPaid, color="Daily", linetype="Daily")) +
-  geom_line(data = elkmontM, aes(x=month, y=avgPaid, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
- scale_color_manual(
-        name = "Data", 
-        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
-  scale_linetype_manual(
-        name = "Data", 
-        values = c(Daily = "dashed", Monthly = "solid")) +
-  labs(x="", y="Average Amount Paid (USD)") + 
-  theme(axis.title.y = element_text(size = 9)) + 
-  theme(axis.title.x = element_text(size = 9)) +
-  theme(panel.background = element_blank())
-
-p5 <- ggplot(elkmont, aes(x=date))
-p5 <- p5 + geom_line(aes(y=avglengthStay, color="Daily", linetype="Daily")) +
-  geom_line(data = elkmontM, aes(x=month, y=avglengthStay, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
- scale_color_manual(
-        name = "Data", 
-        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
-  scale_linetype_manual(
-        name = "Data", 
-        values = c(Daily = "dashed", Monthly = "solid")) +
-  labs(x="", y="Average Length of Stay") + 
-  theme(axis.title.y = element_text(size = 9)) + 
-  theme(axis.title.x = element_text(size = 9)) +
-  theme(panel.background = element_blank())
-
-p6 <- ggplot(elkmont, aes(x=date))
-p6 <- p6 + geom_line(aes(y=avgdateDiff, color="Daily", linetype="Daily")) +
-  geom_line(data = elkmontM, aes(x=month, y=avgdateDiff, color="Monthly", linetype="Monthly"), alpha = 0.5, size = 1.5) +
- scale_color_manual(
-        name = "Data", 
-        values = c(Daily = "dimgrey", Monthly = "firebrick")) +
-  scale_linetype_manual(
-        name = "Data", 
-        values = c(Daily = "dashed", Monthly = "solid")) +
-  labs(x="", y="Average Booking Horizon") + 
-  theme(axis.title.y = element_text(size = 9)) + 
-  theme(axis.title.x = element_text(size = 9)) +
-  theme(panel.background = element_blank())
-
-
-jpeg('elkmont.jpg')
-grid_arrange_shared_legend(p1, p2, p3, p4, p5, p6, ncol=2, nrow=3)
-dev.off()
 ```
 
 ```{r Moving Average}
