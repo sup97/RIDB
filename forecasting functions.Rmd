@@ -1,0 +1,447 @@
+
+```{r elkmont}
+```
+
+```{r Moving Average}
+acf2(matherM$occupancy, main="ACF for 2007-2017")
+#ma_monthly(matherM, 3)
+matherM$month <- as.Date(matherM$month, "%Y-%m-%d")
+matherM$year <- year(matherM$month)
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3), end = c(2017, 12))
+window1 <- window(occupancy, start=c(2017,))
+window2 <- window(occupancy, start=c(2017,9))
+window3 <- window(occupancy, start=c(2017,6))
+window4 <- window(occupancy, start=c(2016,12))
+
+accuracy(ma(window2, 3),occupancy)
+
+fitted <- ma(occupancy, 3)
+e <- abs((occupancy-fitted)/occupancy) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+MA <- ma(window2, 3)
+
+ggplot(matherM, aes(month, occupancy, color = "Data")) +
+  geom_line() +
+  geom_line(data=MA, aes(month, occupancy, color = "MA")) +
+        scale_x_date(labels = date_format("%b/%y"))
+
+
+ggplot(matherM, aes(date, avgfee)) + geom_line() + scale_x_date(format = "%Y-%m-%d")
+
+a <- autoplot(occupancy, type = "obs", mapping = aes(color="Data", linetype="Data")) +
+  autolayer(ma(window3,3), PI=FALSE) +
+  xlab("") + ylab("Occupancy (%)")  + 
+  scale_color_manual(
+        name = "Data", 
+        values = c(Data = "dimgrey", MA = "firebrick")) +
+  scale_linetype_manual(
+        name = "Data", 
+        values = c(Data = "dashed", MA = "solid")) +
+  scale_y_continuous(breaks=seq(0,100,25))  +
+      ggtitle("Mather Campground") +
+   theme(panel.background = element_blank())
+```
+
+```{r}
+acf2(elkmontM$occupancy, main="ACF for 2007-2017")
+#ma_monthly(elkmontM, 3)
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3), end = c(2017, 12))
+Window <- window(occupancy, start=c(2016,1))
+accuracy(ma(occupancy, 3),occupancy)
+fitted <- ma(occupancy, 3)
+e <- abs((occupancy-fitted)/occupancy) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+  autolayer(ma(Window,3), series="3-MA") +
+  xlab("") + ylab("") +
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "ma.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()
+
+```
+
+Our data is inevitably seasonal. Hence, we will run seasonal ARIMA model as the first step of analysis. Refer to https://onlinecourses.science.psu.edu/stat510/node/67/ for more information.
+We will test time-series analysis with one ID. We will run each ID separately as each facility has different length of time.
+
+Some useful sources for forecasting with R:
+http://a-little-book-of-r-for-time-series.readthedocs.io/en/latest/src/timeseries.html
+
+https://robjhyndman.com/hyndsight/dailydata/
+
+```{r ARIMA}
+#variables <- colnames(matherM)[5]
+#arima_monthly(matherM)
+#arima_monthly(elkmontM)
+
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2017,2))
+h <- length(occupancy) - length(train)
+arimafit <- auto.arima(train, lambda="auto", max.P=0, max.Q=0, seasonal = FALSE, trace = FALSE, 
+                              test = "adf",
+                              approximation= FALSE,
+                              allowmean = TRUE,
+                              allowdrift = TRUE)
+ARIMA <- forecast(arimafit, h=h)
+summary(ARIMA)
+forecast::accuracy(ARIMA$model$fitted, occupancy)
+fitted <- ARIMA$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- autoplot(occupancy) +
+      autolayer(ARIMA, series="ARIMA", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Mather Campground")
+a
+
+##Elkmont
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+ARIMA <- forecast(auto.arima(train, lambda="auto", max.P=0, max.Q=0, seasonal = FALSE, trace = FALSE, 
+                              ic = "bic", 
+                              test = "adf",
+                              approximation= FALSE,
+                              allowmean = TRUE,
+                              allowdrift = TRUE), h=h)
+summary(ARIMA)
+
+forecast::accuracy(ARIMA$model$fitted, occupancy)
+
+fitted <- ARIMA$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(ARIMA, series="ARIMA", alpha=0.5) +
+      xlab("") + ylab("")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "arima.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+```
+
+```{r SARIMA}
+#variables <- colnames(matherM)[5]
+#arima_monthly(matherM)
+#arima_monthly(elkmontM)
+
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+ARIMA <- forecast(auto.arima(train, lambda="auto", 
+                             trace = FALSE, 
+                              ic = "bic", 
+                              test = "adf",
+                              approximation= FALSE,
+                              allowmean = TRUE,
+                              allowdrift = TRUE), h=h)
+summary(ARIMA)
+forecast::accuracy(ARIMA$model$fitted, occupancy)
+fitted <- ARIMA$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- autoplot(occupancy) +
+      autolayer(ARIMA, series="SARIMA", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Mather Campground")
+
+
+##Elkmont
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+ARIMA <- forecast(auto.arima(train, 
+                                  trace = FALSE, 
+                                  ic = "bic", 
+                                  test = "adf",
+                                  approximation= FALSE,
+                                  allowmean = TRUE,
+                                  allowdrift = TRUE), h=h)
+summary(ARIMA)
+
+forecast::accuracy(ARIMA$model$fitted, occupancy)
+
+fitted <- ARIMA$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(ARIMA, series="SARIMA", alpha=0.5) +
+      xlab("") + ylab("")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "sarima.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+```
+
+
+
+```{r GARCH}
+library(tseries)
+variables <- colnames(matherM)[5]
+garch_monthly(matherM)
+garch_monthly(elkmontM)
+```
+
+```{r ETS}
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+
+ETS <- forecast(ets(train), h=h)
+forecast::accuracy(ETS$model$fitted, occupancy)
+
+fitted <- ETS$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- forecast::autoplot(occupancy, series="Data") +
+      autolayer(ETS, series="ETS", alpha=0.5, size=2) +
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      xlab("") + ylab("Occupancy (%)")  + 
+      ggtitle("Mather Campground")
+
+
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+
+ETS <- forecast(ets(train), h=h)
+forecast::accuracy(ETS$model$fitted, occupancy)
+
+fitted <- ETS$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(ETS, series="ETS", alpha=0.5) +
+      xlab("") + ylab("")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "ets.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+
+```
+
+```{r}
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+ARIMA <- forecast(auto.arima(train, 
+                                  trace = FALSE, 
+                                  ic = "bic", 
+                                  test = "adf",
+                                  approximation= FALSE,
+                                  allowmean = TRUE,
+                                  allowdrift = TRUE), h=h)
+ETS <- forecast(ets(train), h=h)
+NNAR <- forecast(nnetar(train, P=8), h=h)
+
+Combination <- (ETS[["mean"]] + ARIMA[["mean"]] +
+  NNAR[["mean"]])/3
+
+forecast::accuracy(Combination, occupancy)
+fitted <- Combination
+e <- abs((occupancy[107:129]-fitted)/occupancy[107:129]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+abs((occupancy[107:129]-fitted))/occupancy[107:129]
+
+a<- autoplot(occupancy) +
+        autolayer(Combination, series="Combination", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+  ggtitle("Mather Campground")
+
+
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+ARIMA <- forecast(auto.arima(train, 
+                                  trace = FALSE, 
+                                  ic = "bic", 
+                                  test = "adf",
+                                  approximation= FALSE,
+                                  allowmean = TRUE,
+                                  allowdrift = TRUE), h=h)
+ETS <- forecast(ets(train), h=h)
+NNAR <- forecast(nnetar(train, P=8),h=h)
+
+Combination <- (ETS[["mean"]] + ARIMA[["mean"]] +
+  NNAR[["mean"]])/3
+
+forecast::accuracy(Combination, occupancy)
+fitted <- Combination
+e <- abs((occupancy[107:128]-fitted)/occupancy[107:128]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+e
+
+b <- autoplot(occupancy) +
+      autolayer(ETS, series="Combination", alpha=0.5) +
+      xlab("") + ylab("")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "combination.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+```
+
+```{r}
+# Fit MLP
+mlp.fit <- mlp(ts(elkmontM$occupancy), m=12, lags=12, outplot = TRUE)
+jpeg('avgOccu_NN.jpg')
+plot(mlp.fit)
+dev.off()
+print(mlp.fit)
+
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+fit <- nnetar(train, lambda = "auto", repeats = 100)
+autoplot(forecast(fit, h=h))
+nnetar(train, P=8, lambda = "auto", repeats = 100)
+NNAR <- forecast(nnetar(train, P=8, lambda = "auto", repeats = 100), h=h)
+
+forecast::accuracy(NNAR$fitted, occupancy)
+
+fitted <- NNAR$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- autoplot(occupancy) +
+      autolayer(NNAR, series="NNAR", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Mather Campground")
+
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+fit <- nnetar(train, lambda = "auto", repeats = 100)
+autoplot(forecast(fit, h=h))
+nnetar(train, P=8, lambda = "auto", repeats = 100)
+NNAR <- forecast(nnetar(train, P=8, lambda = "auto", repeats = 100), h=h)
+
+forecast::accuracy(NNAR$fitted, occupancy)
+
+fitted <- NNAR$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(NNAR, series="NNAR", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "nnar.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+
+
+
+
+```
+
+```{r}
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3), end = c(2017, 12))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+
+arf <- arfima(train, order = c(4,0,1), numeach = c(3,3))
+
+spec = ugarchspec()
+garch <- ugarchfit(train, spec=spec)
+GARCH <- ugarchforecast(garch, n.ahead=h)
+
+forecast::accuracy(GARCH@forecast$seriesFor, occupancy)
+
+fitted <- GARCH@forecast$seriesFor
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- autoplot(occupancy) +
+      autolayer(GARCH@forecast$seriesFor, series="NNAR", PI=FALSE) +
+      xlab("Year") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Mather Campground")
+
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3), end = c(2017, 12))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+nn <- nnetar(train)
+NNAR <- forecast(nn)
+
+forecast::accuracy(NNAR$fitted, occupancy)
+
+fitted <- NNAR$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(NNAR, series="NNAR", PI=FALSE) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "nnar.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+```

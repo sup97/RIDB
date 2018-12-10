@@ -5,7 +5,8 @@ formatCamp <- function(ID){
   name$date <- as.Date(name$date, format = "%Y-%m-%d")
   min <- as.Date(min(name$date))
   max <- as.Date(max(name$date))
-  name1 <- name %>%
+  fwrite(name, paste0("descriptive_", ID, ".csv"))
+  name <- name %>%
     complete(date = seq(min, max, by="day")) %>%
     mutate(Campground = na.locf(Campground, na.rm=FALSE)) %>% 
     mutate(Park = na.locf(Park, na.rm=FALSE)) %>% 
@@ -23,8 +24,7 @@ formatCamp <- function(ID){
     mutate(occupancy = 100*occupancy) %>%
     distinct(date, .keep_all=TRUE)
   
-  fwrite(name, paste0("descriptive_", ID, ".csv"))
-  fwrite(name1, paste0("campground_", ID, ".csv"))
+  fwrite(name, paste0("campground_", ID, ".csv"))
   
   name$month <- format(as.Date(name$date, format = "%Y-%m-%d"), "%Y-%m")
   nameM <- name %>%
