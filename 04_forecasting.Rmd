@@ -111,6 +111,11 @@ dplyr::count(moraineD[moraineD$occupancy>1])/dplyr::count(moraineD)
 dplyr::count(upperD[upperD$occupancy>1])/dplyr::count(upperD)
 
 #maximum occupancy
+max(meadowsD$occupancy)
+max(elkmontD$occupancy)
+max(matherD$occupancy)
+max(moraineD$occupancy)
+max(upperD$occupancy)
 ```
 
 
@@ -145,24 +150,45 @@ unitTest(upperM)
 ```
 
 ```{r}
+#install.packages(c("feather", "rpart", "party", "randomForest"))
 library(feather) # data import
 library(rpart) # decision tree method
 library(party) # decision tree method
-library(forecast) # forecasting methods
 library(randomForest) # ensemble learning method
+library(ggplot2)
+```
 
-n_date <- unique(matherM[, month])
-period <- 12
+```{r ensemble}
+n_date <- unique(matherM[, month]) #130
+period <- 
 
-data_train <- matherM[month %in% n_date[1:105]]
-data_test <- matherM[month %in% n_date[106]]
+#I will use 118 months of data for training regression trees methods. Forecasts will be performed to one, three, six, and twelve months ahead. Let’s extract train and test set from the dataset.
+data_train <- matherM[month %in% n_date[1:118]]
+data_test_1 <- matherM[month %in% n_date[119]]
+data_test_3 <- matherM[month %in% n_date[119:120]]
+data_test_6 <- matherM[month %in% n_date[119:123]]
+data_test_12 <- matherM[month %in% n_date[119:130]]
 
+data_train$month <- as.Date(data_train$month)
 ggplot(data_train, aes(month, occupancy, group=1)) +
   geom_line() +
-  labs(x = "Date", y = "Average Occupancy (%)") +
-  theme_ts
+  labs(x = "Date", y = "Average Occupancy (%)")  + 
+    theme(axis.title.y = element_text(size = 9)) + 
+    theme(axis.title.x = element_text(size = 9))  +
+    theme(panel.background = element_blank())   + 
+    scale_y_continuous(breaks=seq(0,100,25))
+```
 
-data_ts <- ts(data_train$occupancy, freq = period * 7)
+#Bagging
+
+Bagging or bootstrap aggregating, is ensemble learning meta-algorithm used to improve prediction accuracy and to overcome (avoid) overfitting. The algorithm is very simple. The first step is sampling a training dataset with replacement with some defined sample ratio (e.g. 0.7). Then a model is trained on a new train set. This procedure is repeated N_boot times (e.g. 100). Final ensemble prediction is just average of N_boot predictions. For aggregating predictions, the median can be also used and will be used in this post.
+
+##Bagging + RPART
+
+The first “bagged” method is RPART (CART) tree. Training set consists of lagged electricity load by one day and double-seasonal Fourier terms (daily and weekly seasonality). Electricity consumption is firstly detrended by STL decomposition and trend part is forecasted (modeled) by ARIMA (auto.arima function). Seasonal and remainder part is then forecasted by regression tree model. More detailed description and explanations are in my previous post about regression trees methods. Let’s define train and test data (by matrix_train and matrix_test).
+
+```{r bagging}
+data_ts <- ts(data_train$occupancy, freq = period)
 decomp_ts <- stl(data_ts, s.window = "periodic", robust = TRUE)$time.series
  
 trend_part <- ts(decomp_ts[,2])
@@ -170,7 +196,7 @@ trend_part <- ts(decomp_ts[,2])
 trend_fit <- auto.arima(trend_part) # ARIMA
 trend_for <- as.vector(forecast(trend_fit, period)$mean) # trend forecast
  
-data_msts <- msts(data_train$value, seasonal.periods = c(period, period*7))
+data_msts <- msts(data_train$occupancy, seasonal.periods = c(period, period*7))
  
 K <- 2
 fuur <- fourier(data_msts, K = c(K, K)) # Fourier features to model (Daily and Weekly)
