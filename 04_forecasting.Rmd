@@ -6,6 +6,7 @@ title: "Forecasting"
 ---
 
 ```{r quietly=T}
+#install.packages(c("readr", "data.table", "psych","dplyr", "tidyr", "reshape2", "lubridate", "forecast", "astsa", "zoo", "nowcasting", "TSstudio", "ggplot2", "pastecs","readxl", "grid", "gridExtra", "kableExtra","knitr", "fpp2", "tstools", "tseries", "plotly", "scales","midasr"))
 library(readr)
 library(data.table)
 library(psych)
@@ -26,7 +27,7 @@ library(grid)
 library(kableExtra)
 library(knitr)
 library(fpp2)
-library(TStools)
+library(tstools)
 library(tseries)
 library(plotly)
 library(scales)
@@ -53,31 +54,34 @@ Mather is the biggest campground on RIDB.
 Great Smoky has 17 campgrounds and 736 out of 750 cmapsites (second largest) on RIDB (98%). Elkmont is the biggest campground in Great Smoky.
 
 ```{r format campground data for forecasting}
-unique(data$id[data$Campground=="MATHER CAMPGROUND"]) #65
+setwd("~/Documents/GitHub/RIDB/data")
+data <- fread("~/Documents/GitHub/RIDB/data/final_data.csv")
+
+#unique(data$id[data$Campground=="MATHER CAMPGROUND"]) #65
 formatCamp(65)
 matherD <- fread("descriptive_65.csv")
 mather <- fread("campground_65.csv")
 matherM <- fread("campground_monthly_65.csv")
 
-unique(data$id[data$Campground=="MORAINE PARK CAMPGROUND"]) #67
+#unique(data$id[data$Campground=="MORAINE PARK CAMPGROUND"]) #67
 formatCamp(67)
 moraineD <- fread("descriptive_67.csv")
 moraine <- fread("campground_67.csv")
 moraineM <- fread("campground_monthly_67.csv")
 
-unique(data$id[data$Campground=="UPPER PINES"]) #106
+#unique(data$id[data$Campground=="UPPER PINES"]) #106
 formatCamp(106)
 upperD <- fread("descriptive_106.csv")
 upper <- fread("campground_106.csv")
 upperM <- fread("campground_monthly_106.csv")
 
-unique(data$id[data$Campground=="BIG MEADOWS"]) #7
+#unique(data$id[data$Campground=="BIG MEADOWS"]) #7
 formatCamp(7)
 meadowsD <- fread("descriptive_7.csv")
 meadows <- fread("campground_7.csv")
 meadowsM <- fread("campground_monthly_7.csv")
 
-unique(data$id[data$Campground=="ELKMONT CAMPGROUND"]) #42
+#unique(data$id[data$Campground=="ELKMONT CAMPGROUND"]) #42
 formatCamp(42)
 elkmontD <- fread("descriptive_42.csv")
 elkmont <- fread("campground_42.csv")
@@ -93,11 +97,20 @@ elkmontM <- fread("campground_monthly_42.csv")
 ```
 
 ```{r summary tables}
-summary(matherD)
-summary(elkmontD)
 summary(meadowsD)
+summary(elkmontD)
+summary(matherD)
 summary(moraineD)
 summary(upperD)
+
+#occupancy greater than 100%
+dplyr::count(meadowsD[meadowsD$occupancy>1])/dplyr::count(meadowsD)
+dplyr::count(elkmontD[elkmontD$occupancy>1])/dplyr::count(elkmontD)
+dplyr::count(matherD[matherD$occupancy>1])/dplyr::count(matherD)
+dplyr::count(moraineD[moraineD$occupancy>1])/dplyr::count(moraineD)
+dplyr::count(upperD[upperD$occupancy>1])/dplyr::count(upperD)
+
+#maximum occupancy
 ```
 
 
@@ -118,15 +131,19 @@ dev.off()
 
 ```{r Unit root tests}
 ## Unit root test
+install.packages(c("fUnitRoots", "uroot"))
 library(fUnitRoots)
 library(uroot)
 
 unitTest(matherM)
+occupancy <- ts(matherM$occupancy, frequency = 12)
+a <- ocsb.test(occupancy, lag.method = c("fixed"), maxlag = 12)
 unitTest(elkmontM)
 unitTest(meadowsM)
 unitTest(moraineM)
 unitTest(upperM)
 ```
+
 ```{r}
 library(feather) # data import
 library(rpart) # decision tree method

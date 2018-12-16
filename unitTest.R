@@ -17,9 +17,9 @@ unitTest <- function(camp){
   
   a <- ocsb.test(occupancy, lag.method = c("fixed"), maxlag = 12)
   result[1,4] <- round(a$statistic, 3)
- 
-  a <- uroot::ch.test(occupancy)
-  result[1,5] <- round(a$statistic[13], 3)
-  result[2,5] <- round(a$pvalues[13], 3)
+  
+  a <- uroot::ch.test(occupancy, type = c("dummy"), lag1 = TRUE)
+  result[1,5] <- round(a$statistic[1], 3)
+  result[2,5] <- round(a$pvalues[1], 3)
   return(result)
 }
