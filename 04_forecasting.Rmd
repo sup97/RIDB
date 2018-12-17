@@ -54,8 +54,8 @@ Mather is the biggest campground on RIDB.
 Great Smoky has 17 campgrounds and 736 out of 750 cmapsites (second largest) on RIDB (98%). Elkmont is the biggest campground in Great Smoky.
 
 ```{r format campground data for forecasting}
-setwd("~/Documents/GitHub/RIDB/data")
-data <- fread("~/Documents/GitHub/RIDB/data/final_data.csv")
+setwd("~/GitHub/RIDB/data")
+data <- fread("~/GitHub/RIDB/data/final_data.csv")
 
 #unique(data$id[data$Campground=="MATHER CAMPGROUND"]) #65
 formatCamp(65)
@@ -116,6 +116,8 @@ max(elkmontD$occupancy)
 max(matherD$occupancy)
 max(moraineD$occupancy)
 max(upperD$occupancy)
+
+rm(meadowsD, elkmontD, matherD, moraineD, upperD)
 ```
 
 
@@ -139,18 +141,18 @@ dev.off()
 install.packages(c("fUnitRoots", "uroot"))
 library(fUnitRoots)
 library(uroot)
+library (urca)
 
-unitTest(matherM)
-occupancy <- ts(matherM$occupancy, frequency = 12)
-a <- ocsb.test(occupancy, lag.method = c("fixed"), maxlag = 12)
-unitTest(elkmontM)
 unitTest(meadowsM)
+unitTest(elkmontM)
+unitTest(matherM)
 unitTest(moraineM)
 unitTest(upperM)
+
 ```
 
 ```{r}
-#install.packages(c("feather", "rpart", "party", "randomForest"))
+install.packages(c("feather", "rpart", "party", "randomForest"))
 library(feather) # data import
 library(rpart) # decision tree method
 library(party) # decision tree method
@@ -159,10 +161,10 @@ library(ggplot2)
 ```
 
 ```{r ensemble}
-n_month <- unique(matherM[, month]) #130
+n_date <- unique(matherM[, month]) #130
 period <- 12
 
-#I will use 118 months of data for training regression trees methods. Forecasts will be performed to one, three, six, and twelve months ahead. Let’s extract train and test set from the dataset.
+#I will use 118 months of data for training regression trees methods. Forecasts will be performed to one, three, six, and twelve months ahead. Let's extract train and test set from the dataset.
 data_train <- matherM[month %in% n_date[1:118]]
 data_test_1 <- matherM[month %in% n_date[119]]
 data_test_3 <- matherM[month %in% n_date[119:120]]
@@ -185,7 +187,7 @@ Bagging or bootstrap aggregating, is ensemble learning meta-algorithm used to im
 
 ##Bagging + RPART
 
-The first “bagged” method is RPART (CART) tree. Training set consists of lagged reservation by one day and double-seasonal Fourier terms (monthly and yearly seasonality). Campsite reservation is firstly detrended by STL decomposition and trend part is forecasted (modeled) by ARIMA (auto.arima function). Seasonal and remainder part is then forecasted by regression tree model. More detailed description and explanations are in my previous post about regression trees methods. Let’s define train and test data (by matrix_train and matrix_test).
+The first "bagged method is RPART (CART) tree. Training set consists of lagged reservation by one day and double-seasonal Fourier terms (monthly and yearly seasonality). Campsite reservation is firstly detrended by STL decomposition and trend part is forecasted (modeled) by ARIMA (auto.arima function). Seasonal and remainder part is then forecasted by regression tree model. More detailed description and explanations are in my previous post about regression trees methods. Let's define train and test data (by matrix_train and matrix_test).
 
 ```{r bagging}
 data_ts <- ts(data_train$occupancy, freq = 12)
@@ -217,5 +219,184 @@ fuur_test <- fourier(data_msts, K = c(K, K), h = period)
  
 matrix_test <- data.table(fuur_test,
                           Lag = test_lag)
+```
+
+I will perform 100 bootstrapped forecasts by RPART, that will be stored in the matrix of size 
+100�48(pred_mat). Additional four parameters will be also sampled (randomized) to avoid overfitting. Sample ratio for sampling train set is sampled in the range from 0.7 to 0.9. Three hyperparameters of RPART are sampled also: minsplit, maxdepth and complexity parameter cp. Hyperparameters are sampled around values set on my previous post modeling.
+
+```{r}
+N_boot <- 100 # number of bootstraps
+ 
+pred_mat <- matrix(0, nrow = N_boot, ncol = period)
+for(i in 1:N_boot) {
+  
+  matrixSam <- matrix_train[sample(1:(N-period),
+                                   floor((N-period) * sample(seq(0.7, 0.9, by = 0.01), 1)),
+                                   replace = TRUE)] # sampling with sampled ratio from 0.7 to 0.9
+  tree_bag <- rpart(Load ~ ., data = matrixSam,
+                    control = rpart.control(minsplit = sample(2:3, 1),
+                                            maxdepth = sample(26:30, 1),
+                                            cp = sample(seq(0.0000009, 0.00001, by = 0.0000001), 1)))
+  
+  # new data and prediction
+  pred_mat[i,] <- predict(tree_bag, matrix_test) + mean(trend_for)
+}
+```
+
+Let's compute median of forecasts and visualize all created forecasts. For ggplot visualization needs we must use melt function to the matrix of forecasts pred_mat.
+
+```{r}
+pred_melt_rpart <- data.table(melt(pred_mat))
+ 
+pred_ave_rpart <- pred_melt_rpart[, .(value = median(value)), by = .(Var2)]
+pred_ave_rpart[, Var1 := "RPART_Bagg"]
+ 
+ggplot(pred_melt_rpart, aes(Var2, value, group = Var1)) +
+  geom_line(alpha = 0.75) +
+  geom_line(data = pred_ave_rpart, aes(Var2, value), color = "firebrick2", alpha = 0.9, size = 2) +
+  labs(x = "Time", y = "Load (kW)", title = "Bagging with RPART") + 
+    theme(axis.title.y = element_text(size = 9)) + 
+    theme(axis.title.x = element_text(size = 9))  +
+    theme(panel.background = element_blank())   + 
+    scale_y_continuous(breaks=seq(0,100,25))
+```
+
+The red line is median of forecasts. We can see that created forecasts by RPART have typical rectangular shape, but final ensemble forecasts has nice smooth behaviour. 
+
+##Bagging with CTREE
+The second "bagged" regression tree method is CTREE. I will randomize only mincriterion hyperparameter of CTREE method that decisions about splitting a node. The sample ratio is of course sampled (randomized) as well as in the previous case with RPART.
+
+```{r}
+pred_mat <- matrix(0, nrow = N_boot, ncol = period)
+for(i in 1:N_boot) {
+  
+  matrixSam <- matrix_train[sample(1:(N-period),
+                                   floor((N-period) * sample(seq(0.7, 0.9, by = 0.01), 1)),
+                                   replace = TRUE)] # sampling with sampled ratio from 0.7 to 0.9
+  tree_bag <- party::ctree(Load ~ ., data = matrixSam,
+                           controls = party::ctree_control(teststat = c("quad"),
+                                                           testtype = c("Teststatistic"),
+                                                           mincriterion = sample(seq(0.88, 0.97, by = 0.005), 1),
+                                                           minsplit = 1,
+                                                           minbucket = 1,
+                                                           mtry = 0, maxdepth = 0))
+  
+  # new data and prediction
+  pred_mat[i,] <- predict(tree_bag, matrix_test) + mean(trend_for)
+}
+
+pred_melt_ctree <- data.table(melt(pred_mat))
+ 
+pred_ave_ctree <- pred_melt_ctree[, .(value = median(value)), by = .(Var2)]
+pred_ave_ctree[, Var1 := "CTREE_Bagg"]
+ 
+ggplot(pred_melt_ctree, aes(Var2, value, group = Var1)) +
+  geom_line(alpha = 0.75) +
+  geom_line(data = pred_ave_ctree, aes(Var2, value), color = "firebrick2", alpha = 0.9, size = 2) +
+  labs(x = "Time", y = "Load (kW)", title = "Bagging with CTREE")
+
+
+rf_model <- randomForest(Load ~ ., data = data.frame(matrix_train),
+                         ntree = 1000, mtry = 3, nodesize = 5, importance = TRUE)
+
+pred_rf <- predict(rf_model, data.frame(matrix_test)) + mean(trend_for)
+
+pred_rf <- data.table(value = pred_rf, Var2 = 1:12, Var1 = "RF")
+ 
+pred_true <- data.table(value = data_test_12$occupancy, Var2 = 1:12, Var1 = "Real")
+
+pred_avg <- cbind(pred_ave_rpart[,2], pred_ave_ctree[,2], pred_rf[,1])
+pred_avg <- transform(pred_avg, average_value = rowMeans(pred_avg, na.rm = TRUE))
+pred_avg[,1:3] <-NULL
+colnames(pred_avg) <- c("value")
+pred_avg <- data.table(value = pred_avg$value, Var2 = 1:12, Var1 = "Average")
+
+preds_all <- rbindlist(list(pred_ave_rpart, pred_ave_ctree, pred_rf, pred_avg, pred_true), use.names = T)
+ 
+ggplot(preds_all, aes(Var2, value, color = as.factor(Var1))) +
+  geom_line(alpha = 0.7, size = 1.2) +
+  labs(x = "Time", y = "Load (kW)", title = "Comparison of Ensemble Learning forecasts") +
+  guides(color=guide_legend(title="Method")) 
+```
+```{r}
+RFgrid <- function(data_train, param1, param2, K, period = 12) {
+  
+  N <- length(data_train)
+  window <- (N / period) - 1
+  
+  data_ts <- msts(data_train, seasonal.periods = c(period, period*12))
+  
+  fuur <- fourier(data_ts, K = c(K, K))
+  fuur_test <- as.data.frame(fourier(data_ts, K = c(K, K), h = period))
+  
+  data_ts <- ts(data_train, freq = period)
+  decomp_ts <- stl(data_ts, s.window = "periodic", robust = TRUE)
+  new_load <- rowSums(decomp_ts$time.series[, c(1,3)])
+  trend_part <- ts(decomp_ts$time.series[,2])
+  
+  trend_fit <- auto.arima(trend_part)
+  trend_for <- as.vector(forecast(trend_fit, period)$mean)
+  
+  lag_seas <- decomp_ts$time.series[1:(period*window), 1]
+  
+  matrix_train <- data.frame(Load = tail(new_load, window*period),
+                             fuur[(period+1):N,],
+                             Lag = lag_seas)
+  
+  tree_2 <- randomForest(Load ~ ., data = matrix_train,
+                         ntree = 1000, mtry = param1, nodesize = param2, importance = TRUE)
+  
+  test_lag <- decomp_ts$time.series[((period*(window))+1):N, 1]
+  
+  matrix_test <- data.frame(fuur_test,
+                            Lag = test_lag)
+  
+  pred_tree <- predict(tree_2, matrix_test) + mean(trend_for)
+  
+  return(as.vector(pred_tree))
+}
+ 
+mape <- function(real, pred){
+  return(100 * mean(abs((real - pred)/real))) # MAPE - Mean Absolute Percentage Error
+}
+ 
+gridSearch <- function(Y, train.win = 100, FUN, param1, param2, period = 12) {
+  
+  days <- length(Y)
+  test.days <- days - train.win
+  mape.matrix <- matrix(0, nrow = length(param1), ncol = length(param2))
+  row.names(mape.matrix) <- param1
+  colnames(mape.matrix) <- param2
+  forecast.rf <- vector(length = test.days*period)
+  
+  for(i in seq_along(param1)){
+    for(j in seq_along(param2)){
+      for(k in 0:(test.days-1)){
+        train.set <- Y[((k*period)+1):((period*k)+(train.win*period))]
+        forecast.rf[((k*period)+1):((k+1)*period)] <- FUN(train.set, param1 = param1[i], param2 = param2[j], K = 2)
+      }
+      mape.matrix[i,j] <- mape(Y[-(1:(train.win*period))], forecast.rf)
+    }
+  }
+  return(mape.matrix)
+}
+```
+
+
+```{r}
+all_data <- matherM$occupancy[1:(period*12)]
+res_1 <- gridSearch(all_data, FUN = RFgrid, param1 = c(2,3,4,5,6), param2 = c(2,3,4,5,6))
+
+c(mtry = row.names(res_1)[which(res_1 == min(res_1), arr.ind = TRUE)[1]],
+  nodesize = colnames(res_1)[which(res_1 == min(res_1), arr.ind = TRUE)[2]])
+
+data_grid <- data.table(melt(res_1))
+colnames(data_grid) <- c("mtry", "nodesize", "MAPE")
+ 
+ggplot(data_grid, aes(mtry, nodesize, size = MAPE, color = MAPE)) +
+  geom_point() +
+  scale_color_distiller(palette = "Reds") +
+  theme_ts
+
 ```
 
