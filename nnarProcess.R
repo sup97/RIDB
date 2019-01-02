@@ -6,7 +6,7 @@ nnarProcess <- function(data, N){
     train <- window(occupancy, end=c(2016,7))
   }
   
-  fit <- nnetar(train, lambda = "auto", repeats = 100)
+  fit <- nnetar(train, P=8, lambda = "auto", repeats = 100)
   NNAR <- forecast(fit, PI= TRUE, h=N)
   
   print(summary(NNAR))
