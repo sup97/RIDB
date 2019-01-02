@@ -5,7 +5,7 @@ title: "04_forecasting"
 title: "Forecasting"
 ---
 
-```{r quietly=T}
+```{r, echo=FALSE}
 #install.packages(c("readr", "data.table", "psych","dplyr", "tidyr", "reshape2", "lubridate", "forecast", "astsa", "zoo", "nowcasting", "TSstudio", "ggplot2", "pastecs","readxl", "grid", "gridExtra", "kableExtra","knitr", "fpp2", "tstools", "tseries", "plotly", "scales","midasr"))
 library(readr)
 library(data.table)
@@ -34,6 +34,10 @@ library(scales)
 library(midasr)
 ```
 
+```{r setup, include=FALSE, echo=FALSE}
+require("knitr")
+opts_knit$set(root.dir = "~/Documents/GitHub/RIDB/data")
+```
 #Forecasting
 
 Get five campgrounds based on RIDB # of Sites
@@ -54,8 +58,15 @@ Mather is the biggest campground on RIDB.
 Great Smoky has 17 campgrounds and 736 out of 750 cmapsites (second largest) on RIDB (98%). Elkmont is the biggest campground in Great Smoky.
 
 ```{r format campground data for forecasting}
-setwd("~/GitHub/RIDB/data")
-data <- fread("~/GitHub/RIDB/data/final_data.csv")
+rm(list=ls())
+
+#load functions
+source("~/Documents/GitHub/RIDB/formatCamp.R")
+source("~/Documents/GitHub/RIDB/unitTest.R")
+source("~/Documents/GitHub/RIDB/campMGraph.R")
+
+#load data
+data <- fread("~/Documents/GitHub/RIDB/data/final_data.csv")
 
 #unique(data$id[data$Campground=="MATHER CAMPGROUND"]) #65
 formatCamp(65)
@@ -94,6 +105,13 @@ elkmontM <- fread("campground_monthly_42.csv")
 #unique(data$id[data$Campground=="FLAMINGO"]) #45
 #formatCamp(45)
 #flamingo <- fread("campground_monthly_45.csv") #weird occupancy
+
+#for consistency, start all camp data from 2007 May
+elkmontM <- elkmontM[which(elkmontM$month>"2007-04-01")]
+matherM <- matherM[which(matherM$month>"2007-04-01")]
+meadowsM <- meadowsM[which(meadowsM$month>"2007-04-01")]
+moraineM <- moraineM[which(moraineM$month>"2007-04-01")]
+upperM <- upperM[which(upperM$month>"2007-04-01")]
 ```
 
 ```{r summary tables}
@@ -138,10 +156,10 @@ dev.off()
 
 ```{r Unit root tests}
 ## Unit root test
-install.packages(c("fUnitRoots", "uroot"))
+#install.packages(c("fUnitRoots", "uroot"))
 library(fUnitRoots)
 library(uroot)
-library (urca)
+library(urca)
 
 unitTest(meadowsM)
 unitTest(elkmontM)
@@ -151,8 +169,8 @@ unitTest(upperM)
 
 ```
 
-```{r}
-install.packages(c("feather", "rpart", "party", "randomForest"))
+```{r, echo=FALSE}
+#install.packages(c("feather", "rpart", "party", "randomForest"))
 library(feather) # data import
 library(rpart) # decision tree method
 library(party) # decision tree method
@@ -222,7 +240,7 @@ matrix_test <- data.table(fuur_test,
 ```
 
 I will perform 100 bootstrapped forecasts by RPART, that will be stored in the matrix of size 
-100×48(pred_mat). Additional four parameters will be also sampled (randomized) to avoid overfitting. Sample ratio for sampling train set is sampled in the range from 0.7 to 0.9. Three hyperparameters of RPART are sampled also: minsplit, maxdepth and complexity parameter cp. Hyperparameters are sampled around values set on my previous post modeling.
+100?48(pred_mat). Additional four parameters will be also sampled (randomized) to avoid overfitting. Sample ratio for sampling train set is sampled in the range from 0.7 to 0.9. Three hyperparameters of RPART are sampled also: minsplit, maxdepth and complexity parameter cp. Hyperparameters are sampled around values set on my previous post modeling.
 
 ```{r}
 N_boot <- 100 # number of bootstraps
@@ -318,85 +336,279 @@ ggplot(preds_all, aes(Var2, value, color = as.factor(Var1))) +
   labs(x = "Time", y = "Load (kW)", title = "Comparison of Ensemble Learning forecasts") +
   guides(color=guide_legend(title="Method")) 
 ```
-```{r}
-RFgrid <- function(data_train, param1, param2, K, period = 12) {
-  
-  N <- length(data_train)
-  window <- (N / period) - 1
-  
-  data_ts <- msts(data_train, seasonal.periods = c(period, period*12))
-  
-  fuur <- fourier(data_ts, K = c(K, K))
-  fuur_test <- as.data.frame(fourier(data_ts, K = c(K, K), h = period))
-  
-  data_ts <- ts(data_train, freq = period)
-  decomp_ts <- stl(data_ts, s.window = "periodic", robust = TRUE)
-  new_load <- rowSums(decomp_ts$time.series[, c(1,3)])
-  trend_part <- ts(decomp_ts$time.series[,2])
-  
-  trend_fit <- auto.arima(trend_part)
-  trend_for <- as.vector(forecast(trend_fit, period)$mean)
-  
-  lag_seas <- decomp_ts$time.series[1:(period*window), 1]
-  
-  matrix_train <- data.frame(Load = tail(new_load, window*period),
-                             fuur[(period+1):N,],
-                             Lag = lag_seas)
-  
-  tree_2 <- randomForest(Load ~ ., data = matrix_train,
-                         ntree = 1000, mtry = param1, nodesize = param2, importance = TRUE)
-  
-  test_lag <- decomp_ts$time.series[((period*(window))+1):N, 1]
-  
-  matrix_test <- data.frame(fuur_test,
-                            Lag = test_lag)
-  
-  pred_tree <- predict(tree_2, matrix_test) + mean(trend_for)
-  
-  return(as.vector(pred_tree))
-}
- 
-mape <- function(real, pred){
-  return(100 * mean(abs((real - pred)/real))) # MAPE - Mean Absolute Percentage Error
-}
- 
-gridSearch <- function(Y, train.win = 100, FUN, param1, param2, period = 12) {
-  
-  days <- length(Y)
-  test.days <- days - train.win
-  mape.matrix <- matrix(0, nrow = length(param1), ncol = length(param2))
-  row.names(mape.matrix) <- param1
-  colnames(mape.matrix) <- param2
-  forecast.rf <- vector(length = test.days*period)
-  
-  for(i in seq_along(param1)){
-    for(j in seq_along(param2)){
-      for(k in 0:(test.days-1)){
-        train.set <- Y[((k*period)+1):((period*k)+(train.win*period))]
-        forecast.rf[((k*period)+1):((k+1)*period)] <- FUN(train.set, param1 = param1[i], param2 = param2[j], K = 2)
-      }
-      mape.matrix[i,j] <- mape(Y[-(1:(train.win*period))], forecast.rf)
-    }
-  }
-  return(mape.matrix)
-}
+
+
+```{r Moving Average}
+source("~/Documents/GitHub/RIDB/maProcess.R")
+maProcess(elkmontM, 3)
+maProcess(matherM, 3)
+maProcess(meadowsM, 3)
+maProcess(moraineM, 3)
+maProcess(upperM, 3)
 ```
 
+Our data is inevitably seasonal. Hence, we will run seasonal ARIMA model as the first step of analysis. Refer to https://onlinecourses.science.psu.edu/stat510/node/67/ for more information.
+We will test time-series analysis with one ID. We will run each ID separately as each facility has different length of time.
 
-```{r}
-all_data <- matherM$occupancy[1:(period*12)]
-res_1 <- gridSearch(all_data, FUN = RFgrid, param1 = c(2,3,4,5,6), param2 = c(2,3,4,5,6))
+Some useful sources for forecasting with R:
+http://a-little-book-of-r-for-time-series.readthedocs.io/en/latest/src/timeseries.html
 
-c(mtry = row.names(res_1)[which(res_1 == min(res_1), arr.ind = TRUE)[1]],
-  nodesize = colnames(res_1)[which(res_1 == min(res_1), arr.ind = TRUE)[2]])
+https://robjhyndman.com/hyndsight/dailydata/
 
-data_grid <- data.table(melt(res_1))
-colnames(data_grid) <- c("mtry", "nodesize", "MAPE")
- 
-ggplot(data_grid, aes(mtry, nodesize, size = MAPE, color = MAPE)) +
-  geom_point() +
-  scale_color_distiller(palette = "Reds") +
-  theme_ts
+```{r ARIMA}
+source("~/Documents/GitHub/RIDB/arimaProcess.R")
+#arimaProcess(dataname, number of forecasts)
+
+arimaProcess(elkmontM, 12)
+arimaProcess(matherM, 12)
+arimaProcess(meadowsM, 12)
+arimaProcess(moraineM, 12)
+arimaProcess(upperM, 12)
+```
+
+```{r SARIMA}
+source("~/Documents/GitHub/RIDB/sarimaProcess.R")
+sarimaProcess(elkmontM, 12)
+sarimaProcess(matherM, 12)
+sarimaProcess(meadowsM, 12)
+sarimaProcess(moraineM, 12)
+sarimaProcess(upperM, 12)
+
+jpeg(filename = "sarima.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+```
+
+```{r ETS}
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+
+ETS <- forecast(ets(train), h=h)
+forecast::accuracy(ETS$model$fitted, occupancy)
+
+fitted <- ETS$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- forecast::autoplot(occupancy, series="Data") +
+      autolayer(ETS, series="ETS", alpha=0.5, size=2) +
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      xlab("") + ylab("Occupancy (%)")  + 
+      ggtitle("Mather Campground")
+
+
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+
+ETS <- forecast(ets(train), h=h)
+forecast::accuracy(ETS$model$fitted, occupancy)
+
+fitted <- ETS$model$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(ETS, series="ETS", alpha=0.5) +
+      xlab("") + ylab("")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "ets.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
 
 ```
 
+```{r}
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+ARIMA <- forecast(auto.arima(train, 
+                                  trace = FALSE, 
+                                  ic = "bic", 
+                                  test = "adf",
+                                  approximation= FALSE,
+                                  allowmean = TRUE,
+                                  allowdrift = TRUE), h=h)
+ETS <- forecast(ets(train), h=h)
+NNAR <- forecast(nnetar(train, P=8), h=h)
+
+Combination <- (ETS[["mean"]] + ARIMA[["mean"]] +
+  NNAR[["mean"]])/3
+
+forecast::accuracy(Combination, occupancy)
+fitted <- Combination
+e <- abs((occupancy[107:129]-fitted)/occupancy[107:129]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+abs((occupancy[107:129]-fitted))/occupancy[107:129]
+
+a<- autoplot(occupancy) +
+        autolayer(Combination, series="Combination", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+  ggtitle("Mather Campground")
+
+
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+ARIMA <- forecast(auto.arima(train, 
+                                  trace = FALSE, 
+                                  ic = "bic", 
+                                  test = "adf",
+                                  approximation= FALSE,
+                                  allowmean = TRUE,
+                                  allowdrift = TRUE), h=h)
+ETS <- forecast(ets(train), h=h)
+NNAR <- forecast(nnetar(train, P=8),h=h)
+
+Combination <- (ETS[["mean"]] + ARIMA[["mean"]] +
+  NNAR[["mean"]])/3
+
+forecast::accuracy(Combination, occupancy)
+fitted <- Combination
+e <- abs((occupancy[107:128]-fitted)/occupancy[107:128]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+e
+
+b <- autoplot(occupancy) +
+      autolayer(ETS, series="Combination", alpha=0.5) +
+      xlab("") + ylab("")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "combination.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+```
+
+```{r}
+# Fit MLP
+mlp.fit <- mlp(ts(elkmontM$occupancy), m=12, lags=12, outplot = TRUE)
+jpeg('avgOccu_NN.jpg')
+plot(mlp.fit)
+dev.off()
+print(mlp.fit)
+
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+fit <- nnetar(train, lambda = "auto", repeats = 100)
+autoplot(forecast(fit, h=h))
+nnetar(train, P=8, lambda = "auto", repeats = 100)
+NNAR <- forecast(nnetar(train, P=8, lambda = "auto", repeats = 100), h=h)
+
+forecast::accuracy(NNAR$fitted, occupancy)
+
+fitted <- NNAR$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- autoplot(occupancy) +
+      autolayer(NNAR, series="NNAR", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Mather Campground")
+
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+fit <- nnetar(train, lambda = "auto", repeats = 100)
+autoplot(forecast(fit, h=h))
+nnetar(train, P=8, lambda = "auto", repeats = 100)
+NNAR <- forecast(nnetar(train, P=8, lambda = "auto", repeats = 100), h=h)
+
+forecast::accuracy(NNAR$fitted, occupancy)
+
+fitted <- NNAR$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(NNAR, series="NNAR", alpha=0.5) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "nnar.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+
+
+
+
+```
+
+```{r}
+occupancy <- ts(matherM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+
+arf <- arfima(train, order = c(4,0,1), numeach = c(3,3))
+
+
+
+spec = ugarchspec()
+garch <- ugarchfit(train, spec=spec)
+GARCH <- ugarchforecast(garch, n.ahead=h)
+
+forecast::accuracy(GARCH@forecast$seriesFor, occupancy)
+
+fitted <- GARCH@forecast$seriesFor
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+a <- autoplot(occupancy) +
+      autolayer(GARCH@forecast$seriesFor, series="NNAR", PI=FALSE) +
+      xlab("Year") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Mather Campground")
+
+occupancy <- ts(elkmontM$occupancy, frequency = 12, start = c(2007, 3))
+train <- window(occupancy, end=c(2015,12))
+h <- length(occupancy) - length(train)
+NNAR <- forecast(nnetar(train), h=h)
+
+forecast::accuracy(NNAR$fitted, occupancy)
+
+fitted <- NNAR$fitted
+e <- abs((occupancy[1:106]-fitted)/occupancy[1:106]) * 100
+e <- e[!is.na(e)]
+e <- e[e!=Inf]
+mean(e)
+
+b <- autoplot(occupancy) +
+      autolayer(NNAR, series="NNAR", PI=FALSE) +
+      xlab("") + ylab("Occupancy (%)")  + 
+  theme(panel.background = element_blank()) + 
+  scale_y_continuous(breaks=seq(0,100,25)) +
+      ggtitle("Elkmont Campground")
+
+jpeg(filename = "nnar.jpeg", width = 10, height = 4, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, ncol=2)
+dev.off()  
+```
