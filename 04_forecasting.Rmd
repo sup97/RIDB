@@ -164,11 +164,12 @@ unitTest(upperM)
 ## Moving Average
 ```{r Moving Average}
 source("~/Documents/GitHub/RIDB/maProcess.R")
-maProcess(elkmontM, 12)
-maProcess(matherM, 3)
-maProcess(meadowsM, 3)
-maProcess(moraineM, 3)
-maProcess(upperM, 3)
+#maProcess(elkmontM, 12)
+maProcess(elkmontM, 6)
+maProcess(matherM, 6)
+maProcess(meadowsM, 6)
+maProcess(moraineM, 6)
+maProcess(upperM, 6)
 ```
 
 ## ARIMA
@@ -176,11 +177,11 @@ maProcess(upperM, 3)
 source("~/Documents/GitHub/RIDB/arimaProcess.R")
 #arimaProcess(dataname, number of forecasts)
 
-arimaProcess(elkmontM, 12)
-arimaProcess(matherM, 12)
-arimaProcess(meadowsM, 12)
-arimaProcess(moraineM, 12)
-arimaProcess(upperM, 12)
+arimaProcess(elkmontM, 6)
+arimaProcess(matherM, 6)
+arimaProcess(meadowsM, 6)
+arimaProcess(moraineM, 6)
+arimaProcess(upperM, 3)
 ```
 
 Our data is inevitably seasonal. Hence, we will run seasonal ARIMA model. Refer to https://onlinecourses.science.psu.edu/stat510/node/67/ for more information.
@@ -194,11 +195,11 @@ https://robjhyndman.com/hyndsight/dailydata/
 ## SARIMA
 ```{r SARIMA}
 source("~/Documents/GitHub/RIDB/sarimaProcess.R")
-sarimaProcess(elkmontM, 12)
-sarimaProcess(matherM, 12)
-sarimaProcess(meadowsM, 12)
-sarimaProcess(moraineM, 12)
-sarimaProcess(upperM, 12)
+sarimaProcess(elkmontM, 6)
+sarimaProcess(matherM, 6)
+sarimaProcess(meadowsM, 6)
+sarimaProcess(moraineM, 6)
+sarimaProcess(upperM, 6)
 
 jpeg(filename = "sarima.jpeg", width = 10, height = 4, units = 'in', res = 300)
 grid_arrange_shared_legend(a, b, ncol=2)
@@ -208,11 +209,11 @@ dev.off()
 ## ETS
 ```{r ETS}
 source("~/Documents/GitHub/RIDB/etsProcess.R")
-etsProcess(elkmontM, 12)
-etsProcess(matherM, 12)
-etsProcess(meadowsM, 12)
-etsProcess(moraineM, 12)
-etsProcess(upperM, 12)
+etsProcess(elkmontM, 6)
+etsProcess(matherM, 6)
+etsProcess(meadowsM, 6)
+etsProcess(moraineM, 6)
+etsProcess(upperM, 6)
 
 jpeg(filename = "ets.jpeg", width = 10, height = 4, units = 'in', res = 300)
 grid_arrange_shared_legend(a, b, ncol=2)
@@ -222,6 +223,17 @@ dev.off()
 ##NNAR
 ```{r NNAR}
 source("~/Documents/GitHub/RIDB/nnarProcess.R")
+nnarProcess(elkmontM, 3)
+nnarProcess(matherM, 3)
+nnarProcess(meadowsM, 3)
+nnarProcess(moraineM, 3)
+nnarProcess(upperM, 3)
+
+nnarProcess(elkmontM, 6)
+nnarProcess(matherM, 6)
+nnarProcess(meadowsM, 6)
+nnarProcess(moraineM, 6)
+nnarProcess(upperM, 6)
 
 nnarProcess(elkmontM, 12)
 nnarProcess(matherM, 12)
@@ -233,6 +245,24 @@ nnarProcess(upperM, 12)
 ## ETS + SARIMA + NNAR
 ```{r Combination}
 source("~/Documents/GitHub/RIDB/combProcess.R")
+combProcess(elkmontM, 3)
+combProcess(matherM, 3)
+combProcess(meadowsM, 3)
+combProcess(moraineM, 3)
+combProcess(upperM, 3)
+
+combProcess(elkmontM, 6)
+combProcess(matherM, 6)
+combProcess(meadowsM, 6)
+combProcess(moraineM, 6)
+combProcess(upperM, 6)
+
+combProcess(elkmontM, 12)
+combProcess(matherM, 12)
+combProcess(meadowsM, 12)
+combProcess(moraineM, 12)
+combProcess(upperM, 12)
+
 combProcess(elkmontM, 12)
 combProcess(matherM, 12)
 combProcess(meadowsM, 12)
@@ -243,33 +273,25 @@ combProcess(upperM, 12)
 
 ## ENSEMBLE
 ```{r, echo=FALSE}
-#install.packages(c("feather", "rpart", "party", "randomForest"))
-library(feather) # data import
+#install.packages(c("rpart", "party", "randomForest"))
 library(rpart) # decision tree method
 library(party) # decision tree method
 library(randomForest) # ensemble learning method
-library(ggplot2)
 ```
 
 ```{r ensemble}
-n_date <- unique(matherM[, month]) #130
+n_date <- unique(matherM[, month]) #128
 period <- 12
+m <- length(n_date) - 12
 
 #I will use 118 months of data for training regression trees methods. Forecasts will be performed to one, three, six, and twelve months ahead. Let's extract train and test set from the dataset.
-data_train <- matherM[month %in% n_date[1:118]]
+data_train <- matherM[month %in% n_date[1:m]]
+data_train$month <- as.Date(data_train$month)
+
 data_test_1 <- matherM[month %in% n_date[119]]
 data_test_3 <- matherM[month %in% n_date[119:120]]
 data_test_6 <- matherM[month %in% n_date[119:123]]
 data_test_12 <- matherM[month %in% n_date[119:130]]
-
-data_train$month <- as.Date(data_train$month)
-ggplot(data_train, aes(month, occupancy, group=1)) +
-  geom_line() +
-  labs(x = "Date", y = "Average Occupancy (%)")  + 
-    theme(axis.title.y = element_text(size = 9)) + 
-    theme(axis.title.x = element_text(size = 9))  +
-    theme(panel.background = element_blank())   + 
-    scale_y_continuous(breaks=seq(0,100,25))
 ```
 
 #Bagging
@@ -278,10 +300,10 @@ Bagging or bootstrap aggregating, is ensemble learning meta-algorithm used to im
 
 ##Bagging + RPART
 
-The first "bagged method is RPART (CART) tree. Training set consists of lagged reservation by one day and double-seasonal Fourier terms (monthly and yearly seasonality). Campsite reservation is firstly detrended by STL decomposition and trend part is forecasted (modeled) by ARIMA (auto.arima function). Seasonal and remainder part is then forecasted by regression tree model. More detailed description and explanations are in my previous post about regression trees methods. Let's define train and test data (by matrix_train and matrix_test).
+The first "bagged method is RPART (CART) tree. Campsite reservation is firstly detrended by STL decomposition and trend part is forecasted (modeled) by ARIMA (auto.arima function). Seasonal and remainder part is then forecasted by regression tree model. More detailed description and explanations are in my previous post about regression trees methods. Let's define train and test data (by matrix_train and matrix_test).
 
 ```{r bagging}
-data_ts <- ts(data_train$occupancy, freq = 12)
+data_ts <- ts(data_train$occupancy, freq = 12, start = c(2007, 5))
 decomp_ts <- stl(data_ts, s.window = "periodic", robust = TRUE)$time.series
  
 trend_part <- ts(decomp_ts[,2])
@@ -345,10 +367,11 @@ pred_ave_rpart[, Var1 := "RPART_Bagg"]
 ggplot(pred_melt_rpart, aes(Var2, value, group = Var1)) +
   geom_line(alpha = 0.75) +
   geom_line(data = pred_ave_rpart, aes(Var2, value), color = "firebrick2", alpha = 0.9, size = 2) +
-  labs(x = "Time", y = "Load (kW)", title = "Bagging with RPART") + 
+  labs(x = "Time", y = "Occupnacy (%)", title = "Bagging with RPART") + 
     theme(axis.title.y = element_text(size = 9)) + 
     theme(axis.title.x = element_text(size = 9))  +
     theme(panel.background = element_blank())   + 
+    scale_x_continuous(breaks = c(1,2,3,4,5,6),labels=as.character(c("March 2017","April 2017","May 2017","June 2017","July 2017","August 2017"))) +
     scale_y_continuous(breaks=seq(0,100,25))
 ```
 

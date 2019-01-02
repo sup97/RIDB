@@ -5,8 +5,10 @@ etsProcess <- function(data, N){
   } else {
     train <- window(occupancy, end=c(2016,7))
   }
+  
+  print(summary(ets(train, lambda = "auto")))
 
-  ETS <- forecast(ets(train), h=N)
+  ETS <- forecast(ets(train, lambda = "auto"), h=N)
   
   fitted <- ETS$mean
   n <- length(train)+1

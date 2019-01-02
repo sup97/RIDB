@@ -7,7 +7,7 @@ nnarProcess <- function(data, N){
   }
   
   fit <- nnetar(train, P=8, lambda = "auto", repeats = 100)
-  NNAR <- forecast(fit, PI= TRUE, h=N)
+  NNAR <- forecast(fit, PI=TRUE, h=N)
   
   print(summary(NNAR))
   fitted <- NNAR$mean
@@ -16,8 +16,7 @@ nnarProcess <- function(data, N){
   
   if(N<10){
     compare <- ts(occupancy[n:m], frequency = 12, start = c(2017,9-N))
-  }
-  else {
+  } else {
     compare <- ts(occupancy[n:m], frequency = 12, start = c(2016,8)) 
   }
   
