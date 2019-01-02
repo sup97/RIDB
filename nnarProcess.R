@@ -1,4 +1,4 @@
-maProcess <- function(data, N){
+nnarProcess <- function(data, N){  
   occupancy <- ts(data$occupancy, frequency = 12, start = c(2007, 5))
   if(N<10){
     train <- window(occupancy, end=c(2017,8-N))
@@ -6,9 +6,11 @@ maProcess <- function(data, N){
     train <- window(occupancy, end=c(2016,7))
   }
   
-  MA <- forecast(ma(train, 3), h=N)
+  fit <- nnetar(train, lambda = "auto", repeats = 100)
+  NNAR <- forecast(fit, PI= TRUE, h=N)
   
-  fitted <- MA$mean
+  print(summary(NNAR))
+  fitted <- NNAR$mean
   n <- length(train)+1
   m <- n+N-1
   
@@ -23,11 +25,11 @@ maProcess <- function(data, N){
   e <- e[!is.na(e)]
   e <- e[e!=Inf]
   
-  print(forecast::accuracy(MA$mean, occupancy))
+  print(forecast::accuracy(NNAR$mean, occupancy))
   print(mean(e))
   
   autoplot(compare) +
-    autolayer(MA, series="MA", alpha=0.5) +
+    autolayer(NNAR, series="NNAR", alpha=0.5) +
     xlab("") + ylab("Occupancy (%)")  + 
     theme(panel.background = element_blank()) + 
     scale_y_continuous(breaks=seq(0,100,25))
