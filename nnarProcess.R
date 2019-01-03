@@ -7,7 +7,7 @@ nnarProcess <- function(data, N){
   }
   
   fit <- nnetar(train, P=8, lambda = "auto", repeats = 100)
-  NNAR <- forecast(fit, PI=TRUE, h=N)
+  NNAR <- forecast(fit, h=N)
   
   print(summary(NNAR))
   fitted <- NNAR$mean
@@ -21,8 +21,8 @@ nnarProcess <- function(data, N){
   }
   
   e <- abs((compare-fitted)/compare) * 100
-  e <- e[!is.na(e)]
-  e <- e[e!=Inf]
+  e <- ifelse(is.na(e)==TRUE, 0, e)
+  e <- ifelse(e==Inf, 0, e)
   
   print(forecast::accuracy(NNAR$mean, occupancy))
   print(mean(e))
