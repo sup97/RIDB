@@ -32,6 +32,7 @@ library(tseries)
 library(plotly)
 library(scales)
 library(midasr)
+library(tsfknn)
 ```
 
 ```{r setup, include=FALSE, echo=FALSE}
@@ -54,12 +55,12 @@ ELKMONT CAMPGROUND	Great Smoky Mountains	220	211	Open 3/9 - 11/25	4	365
 rm(list=ls())
 
 #load functions
-source("~/Documents/GitHub/RIDB/formatCamp.R")
-source("~/Documents/GitHub/RIDB/unitTest.R")
-source("~/Documents/GitHub/RIDB/campMGraph.R")
+source("~/GitHub/RIDB/formatCamp.R")
+source("~/GitHub/RIDB/unitTest.R")
+source("~/GitHub/RIDB/campMGraph.R")
 
 #load data
-data <- fread("~/Documents/GitHub/RIDB/data/final_data.csv")
+data <- fread("~/GitHub/RIDB/data/final_data.csv")
 
 #unique(data$id[data$Campground=="MATHER CAMPGROUND"]) #65
 formatCamp(65)
@@ -163,7 +164,7 @@ unitTest(upperM)
 
 ## Moving Average
 ```{r Moving Average}
-source("~/Documents/GitHub/RIDB/maProcess.R")
+source("~/GitHub/RIDB/maProcess.R")
 #maProcess(elkmontM, 12)
 maProcess(elkmontM, 6)
 maProcess(matherM, 6)
@@ -174,7 +175,7 @@ maProcess(upperM, 6)
 
 ## ARIMA
 ```{r ARIMA}
-source("~/Documents/GitHub/RIDB/arimaProcess.R")
+source("~/GitHub/RIDB/arimaProcess.R")
 #arimaProcess(dataname, number of forecasts)
 
 arimaProcess(elkmontM, 6)
@@ -194,16 +195,18 @@ https://robjhyndman.com/hyndsight/dailydata/
 
 ## SARIMA
 ```{r SARIMA}
-source("~/Documents/GitHub/RIDB/sarimaProcess.R")
+source("~/GitHub/RIDB/sarimaProcess.R")
+sarimaProcess(elkmontM, 3)
+sarimaProcess(matherM, 3)
+sarimaProcess(meadowsM, 3)
+sarimaProcess(moraineM, 3)
+sarimaProcess(upperM, 3)
+
 sarimaProcess(elkmontM, 6)
 sarimaProcess(matherM, 6)
 sarimaProcess(meadowsM, 6)
 sarimaProcess(moraineM, 6)
 sarimaProcess(upperM, 6)
-
-jpeg(filename = "sarima.jpeg", width = 10, height = 4, units = 'in', res = 300)
-grid_arrange_shared_legend(a, b, ncol=2)
-dev.off()  
 ```
 
 ## ETS
@@ -214,10 +217,6 @@ etsProcess(matherM, 6)
 etsProcess(meadowsM, 6)
 etsProcess(moraineM, 6)
 etsProcess(upperM, 6)
-
-jpeg(filename = "ets.jpeg", width = 10, height = 4, units = 'in', res = 300)
-grid_arrange_shared_legend(a, b, ncol=2)
-dev.off()  
 ```
 
 ##NNAR
@@ -244,7 +243,7 @@ nnarProcess(upperM, 12)
 
 ## ETS + SARIMA + NNAR
 ```{r Combination}
-source("~/Documents/GitHub/RIDB/combProcess.R")
+source("~/GitHub/RIDB/combProcess.R")
 combProcess(elkmontM, 3)
 combProcess(matherM, 3)
 combProcess(meadowsM, 3)
@@ -262,12 +261,138 @@ combProcess(matherM, 12)
 combProcess(meadowsM, 12)
 combProcess(moraineM, 12)
 combProcess(upperM, 12)
+```
 
-combProcess(elkmontM, 12)
-combProcess(matherM, 12)
-combProcess(meadowsM, 12)
-combProcess(moraineM, 12)
-combProcess(upperM, 12)
+```{r 12 months graph}
+source("~/GitHub/RIDB/combProcess2.R")
+b<-combProcess2(elkmontM, 12)
+c<-combProcess2(matherM, 12)
+a<-combProcess2(meadowsM, 12)
+d<-combProcess2(moraineM, 12)
+e<-combProcess2(upperM, 12)
+
+cbbPalette <- c("#D55E00", "#000000", "#0072B2")
+
+a<-ggplot(data = a, aes(x=Time, y=value, color=series)) +
+    labs(y="Occupancy (%)", title="Big Meadows, Shenandoah National Park")  +
+    geom_line(aes(y=gtemp , col='Real'), size=1.2, alpha=.9)  +
+    geom_line(aes(y=gtempl, col='Combination'), size=1.2, alpha=.5)    +
+    geom_line(aes(y=gtempa, col='SARIMA'), size=1.2, alpha=.5)    +
+    theme(panel.background = element_blank()) + 
+    scale_y_continuous(breaks=seq(0,100,25)) +
+    scale_x_date(date_breaks = "2 month", date_labels = "%b %Y") +
+    scale_colour_manual(values=cbbPalette)
+
+b<-ggplot(data = b, aes(x=Time, y=value, color=series )  )  +
+    labs(y="Occupancy (%)", title="Elkmont, Great Smoky Mountains National Park")       +
+    geom_line(aes(y=gtemp , col='Real'), size=1.2, alpha=.9)  +
+    geom_line(aes(y=gtempl, col='Combination'), size=1.2, alpha=.5)    +
+    geom_line(aes(y=gtempa, col='SARIMA'), size=1.2, alpha=.5)    +
+    theme(panel.background = element_blank()) + 
+    scale_y_continuous(breaks=seq(0,100,25)) +
+    scale_x_date(date_breaks = "2 month", date_labels = "%b %Y") +
+    scale_colour_manual(values=cbbPalette)
+
+c<-ggplot(data = c, aes(x=Time, y=value, color=series )  ) +
+    labs(y="Occupancy (%)", title="Mather, Grand Canyon National Park")    +
+    geom_line(aes(y=gtemp , col='Real'), size=1.2, alpha=.9)  +
+    geom_line(aes(y=gtempl, col='Combination'), size=1.2, alpha=.5)    +
+    geom_line(aes(y=gtempa, col='SARIMA'), size=1.2, alpha=.5)    +
+    theme(panel.background = element_blank()) + 
+    scale_y_continuous(breaks=seq(0,100,25)) +
+    scale_x_date(date_breaks = "2 month", date_labels = "%b %Y") +
+    scale_colour_manual(values=cbbPalette)
+
+d<-ggplot(data = d, aes(x=Time, y=value, color=series )  ) +
+    labs(y="Occupancy (%)", title="Moraine, Rocky Mountain National Park")    +
+    geom_line(aes(y=gtemp , col='Real'), size=1.2, alpha=.9)  +
+    geom_line(aes(y=gtempl, col='Combination'), size=1.2, alpha=.5)    +
+    geom_line(aes(y=gtempa, col='SARIMA'), size=1.2, alpha=.5)    +
+    theme(panel.background = element_blank()) + 
+    scale_y_continuous(breaks=seq(0,100,25)) +
+    scale_x_date(date_breaks = "2 month", date_labels = "%b %Y") +
+    scale_colour_manual(values=cbbPalette)
+
+e<-ggplot(data = e, aes(x=Time, y=value, color=series )  )  +
+    labs(y="Occupancy (%)", title="Upper Pines, Yosemite National Park")   +
+    geom_line(aes(y=gtemp , col='Real'), size=1.2, alpha=.9)  +
+    geom_line(aes(y=gtempl, col='Combination'), size=1.2, alpha=.5)    +
+    geom_line(aes(y=gtempa, col='SARIMA'), size=1.2, alpha=.5)    +
+    theme(panel.background = element_blank()) + 
+    scale_y_continuous(breaks=seq(0,100,25)) +
+    scale_x_date(date_breaks = "2 month", date_labels = "%b %Y") +
+    scale_colour_manual(values=cbbPalette)
+
+source("~/Github/RIDB/grid_arrange_shared_legend.R")
+jpeg(filename = "forecasting12.jpeg", width = 20, height = 10, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, c, d, e, ncol=3, nrow=2)
+dev.off()  
+```
+
+```{r 6 months graph}
+source("~/GitHub/RIDB/combProcess2.R")
+b<-combProcess2(elkmontM, 6)
+c<-combProcess2(matherM, 6)
+a<-combProcess2(meadowsM, 6)
+d<-combProcess2(moraineM, 6)
+e<-combProcess2(upperM, 6)
+
+cbbPalette <- c("#D55E00", "#000000", "#0072B2")
+
+a<-ggplot(data = a, aes(x=Time, y=value, color=series)) +
+    labs(y="Occupancy (%)", title="Big Meadows, Shenandoah National Park")  +
+    geom_line(aes(y=gtemp , col='Real'), size=1.2, alpha=.9)  +
+    geom_line(aes(y=gtempl, col='Combination'), size=1.2, alpha=.5)    +
+    geom_line(aes(y=gtempa, col='SARIMA'), size=1.2, alpha=.5)    +
+    theme(panel.background = element_blank()) + 
+    scale_y_continuous(breaks=seq(0,100,25)) +
+    scale_x_date(date_breaks = "2 month", date_labels = "%b %Y") +
+    scale_colour_manual(values=cbbPalette)
+
+b<-ggplot(data = b, aes(x=Time, y=value, color=series )  )  +
+    labs(y="Occupancy (%)", title="Elkmont, Great Smoky Mountains National Park")       +
+    geom_line(aes(y=gtemp , col='Real'), size=1.2, alpha=.9)  +
+    geom_line(aes(y=gtempl, col='Combination'), size=1.2, alpha=.5)    +
+    geom_line(aes(y=gtempa, col='SARIMA'), size=1.2, alpha=.5)    +
+    theme(panel.background = element_blank()) + 
+    scale_y_continuous(breaks=seq(0,100,25)) +
+    scale_x_date(date_breaks = "2 month", date_labels = "%b %Y") +
+    scale_colour_manual(values=cbbPalette)
+
+c<-ggplot(data = c, aes(x=Time, y=value, color=series )  ) +
+    labs(y="Occupancy (%)", title="Mather, Grand Canyon National Park")    +
+    geom_line(aes(y=gtemp , col='Real'), size=1.2, alpha=.9)  +
+    geom_line(aes(y=gtempl, col='Combination'), size=1.2, alpha=.5)    +
+    geom_line(aes(y=gtempa, col='SARIMA'), size=1.2, alpha=.5)    +
+    theme(panel.background = element_blank()) + 
+    scale_y_continuous(breaks=seq(0,100,25)) +
+    scale_x_date(date_breaks = "2 month", date_labels = "%b %Y") +
+    scale_colour_manual(values=cbbPalette)
+
+d<-ggplot(data = d, aes(x=Time, y=value, color=series )  ) +
+    labs(y="Occupancy (%)", title="Moraine, Rocky Mountain National Park")    +
+    geom_line(aes(y=gtemp , col='Real'), size=1.2, alpha=.9)  +
+    geom_line(aes(y=gtempl, col='Combination'), size=1.2, alpha=.5)    +
+    geom_line(aes(y=gtempa, col='SARIMA'), size=1.2, alpha=.5)    +
+    theme(panel.background = element_blank()) + 
+    scale_y_continuous(breaks=seq(0,100,25)) +
+    scale_x_date(date_breaks = "2 month", date_labels = "%b %Y") +
+    scale_colour_manual(values=cbbPalette)
+
+e<-ggplot(data = e, aes(x=Time, y=value, color=series )  )  +
+    labs(y="Occupancy (%)", title="Upper Pines, Yosemite National Park")   +
+    geom_line(aes(y=gtemp , col='Real'), size=1.2, alpha=.9)  +
+    geom_line(aes(y=gtempl, col='Combination'), size=1.2, alpha=.5)    +
+    geom_line(aes(y=gtempa, col='SARIMA'), size=1.2, alpha=.5)    +
+    theme(panel.background = element_blank()) + 
+    scale_y_continuous(breaks=seq(0,100,25)) +
+    scale_x_date(date_breaks = "2 month", date_labels = "%b %Y") +
+    scale_colour_manual(values=cbbPalette)
+
+source("~/Github/RIDB/grid_arrange_shared_legend.R")
+jpeg(filename = "forecasting6.jpeg", width = 20, height = 10, units = 'in', res = 300)
+grid_arrange_shared_legend(a, b, c, d, e, ncol=3, nrow=2)
+dev.off()  
 ```
 
 ## ENSEMBLE
@@ -286,6 +411,42 @@ knnProcess(meadowsM, 6)
 knnProcess(moraineM, 6)
 knnProcess(upperM, 6)
 ```
+
+##MAPE
+
+```{r}
+source("~/GitHub/RIDB/mapeProcess.R")
+mapeProcess(elkmontM, 2)
+mapeProcess(matherM, 2)
+mapeProcess(meadowsM, 2)
+mapeProcess(moraineM, 2)
+mapeProcess(upperM, 2)
+
+mapeProcess(elkmontM, 3)
+mapeProcess(matherM, 3)
+mapeProcess(meadowsM, 3)
+mapeProcess(moraineM, 3)
+mapeProcess(upperM, 3)
+
+mapeProcess(elkmontM, 6)
+mapeProcess(matherM, 6)
+mapeProcess(meadowsM, 6)
+mapeProcess(moraineM, 6)
+mapeProcess(upperM, 6)
+
+mapeProcess(elkmontM, 12)
+mapeProcess(matherM, 12)
+mapeProcess(meadowsM, 12)
+mapeProcess(moraineM, 12)
+mapeProcess(upperM, 12)
+
+```
+
+
+
+
+
+
 
 ```{r, include=FALSE, echo=FALSE}
 #install.packages(c("rpart", "party", "randomForest"))
