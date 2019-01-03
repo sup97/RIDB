@@ -14,14 +14,13 @@ maProcess <- function(data, N){
   
   if(N<10){
     compare <- ts(occupancy[n:m], frequency = 12, start = c(2017,9-N))
-  }
-  else {
+  } else {
     compare <- ts(occupancy[n:m], frequency = 12, start = c(2016,8)) 
   }
   
   e <- abs((compare-fitted)/compare) * 100
-  e <- e[!is.na(e)]
-  e <- e[e!=Inf]
+  e <- ifelse(is.na(e)==TRUE, 0, e)
+  e <- ifelse(e==Inf, 0, e)
   
   print(forecast::accuracy(MA$mean, occupancy))
   print(mean(e))
