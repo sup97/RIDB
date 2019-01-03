@@ -19,9 +19,10 @@ combProcess <- function(data, N){
   
   ETS <- forecast(ets(train), h=N)
   NNAR <- forecast(nnetar(train, P=8, lambda = "auto", repeats = 100), h=N)
+  KNN <- knn_forecasting(train, h = N, lags = 1:12, k = 3, msas = "MIMO")
   
   Combination <- (ETS[["mean"]] + SARIMA[["mean"]] +
-                    NNAR[["mean"]])/3
+                    NNAR[["mean"]] + KNN[["prediction"]])/4
   
   
   fitted <- Combination
@@ -30,14 +31,13 @@ combProcess <- function(data, N){
   
   if(N<10){
     compare <- ts(occupancy[n:m], frequency = 12, start = c(2017,9-N))
-  }
-  else {
+  } else {
     compare <- ts(occupancy[n:m], frequency = 12, start = c(2016,8)) 
   }
   
   e <- abs((compare-fitted)/compare) * 100
-  e <- e[!is.na(e)]
-  e <- e[e!=Inf]
+  e <- ifelse(is.na(e)==TRUE, 0, e)
+  e <- ifelse(e==Inf, 0, e)
   
   print(forecast::accuracy(Combination, occupancy))
   print(mean(e))
