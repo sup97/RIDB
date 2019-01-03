@@ -5,7 +5,7 @@ title: "04_forecasting"
 title: "Forecasting"
 ---
 
-```{r, echo=FALSE}
+```{r, include=FALSE, echo=FALSE}
 #install.packages(c("readr", "data.table", "psych","dplyr", "tidyr", "reshape2", "lubridate", "forecast", "astsa", "zoo", "nowcasting", "TSstudio", "ggplot2", "pastecs","readxl", "grid", "gridExtra", "kableExtra","knitr", "fpp2", "tstools", "tseries", "plotly", "scales","midasr"))
 library(readr)
 library(data.table)
@@ -181,7 +181,7 @@ arimaProcess(elkmontM, 6)
 arimaProcess(matherM, 6)
 arimaProcess(meadowsM, 6)
 arimaProcess(moraineM, 6)
-arimaProcess(upperM, 3)
+arimaProcess(upperM, 6)
 ```
 
 Our data is inevitably seasonal. Hence, we will run seasonal ARIMA model. Refer to https://onlinecourses.science.psu.edu/stat510/node/67/ for more information.
@@ -270,9 +270,24 @@ combProcess(moraineM, 12)
 combProcess(upperM, 12)
 ```
 
-
 ## ENSEMBLE
 ```{r, echo=FALSE}
+
+  
+```
+
+##KNN
+```{r KNN}
+source("~/Documents/GitHub/RIDB/knnProcess.R")
+
+knnProcess(elkmontM, 6)
+knnProcess(matherM, 6)
+knnProcess(meadowsM, 6)
+knnProcess(moraineM, 6)
+knnProcess(upperM, 6)
+```
+
+```{r, include=FALSE, echo=FALSE}
 #install.packages(c("rpart", "party", "randomForest"))
 library(rpart) # decision tree method
 library(party) # decision tree method
@@ -371,7 +386,7 @@ ggplot(pred_melt_rpart, aes(Var2, value, group = Var1)) +
     theme(axis.title.y = element_text(size = 9)) + 
     theme(axis.title.x = element_text(size = 9))  +
     theme(panel.background = element_blank())   + 
-    scale_x_continuous(breaks = c(1,2,3,4,5,6),labels=as.character(c("March 2017","April 2017","May 2017","June 2017","July 2017","August 2017"))) +
+    scale_x_continuous(breaks = c(1,2,3,4,5,6,7,8,9,10,11,12),labels=as.character(c("Sep 2016", "Oct 2016", "Nov 2016", "Dec 2016", "Jan 2017", "Feb 2017" ,"Mar 2017","Apr 2017","May 2017","Jun 2017","Jul 2017","Aug 2017"))) +
     scale_y_continuous(breaks=seq(0,100,25))
 ```
 
