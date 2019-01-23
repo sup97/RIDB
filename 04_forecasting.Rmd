@@ -159,7 +159,6 @@ unitTest(elkmontM)
 unitTest(matherM)
 unitTest(moraineM)
 unitTest(upperM)
-
 ```
 
 ## Moving Average
@@ -202,9 +201,9 @@ sarimaProcess(meadowsM, 3)
 sarimaProcess(moraineM, 3)
 sarimaProcess(upperM, 3)
 
+sarimaProcess(meadowsM, 6)
 sarimaProcess(elkmontM, 6)
 sarimaProcess(matherM, 6)
-sarimaProcess(meadowsM, 6)
 sarimaProcess(moraineM, 6)
 sarimaProcess(upperM, 6)
 ```

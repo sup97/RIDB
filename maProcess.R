@@ -3,7 +3,7 @@ maProcess <- function(data, N){
   if(N<10){
     train <- window(occupancy, end=c(2017,8-N))
   } else {
-    train <- window(occupancy, end=c(2016,7))
+    train <- window(occupancy, end=c(2016,8))
   }
   
   MA <- forecast(ma(train, 3), h=N)
@@ -15,7 +15,7 @@ maProcess <- function(data, N){
   if(N<10){
     compare <- ts(occupancy[n:m], frequency = 12, start = c(2017,9-N))
   } else {
-    compare <- ts(occupancy[n:m], frequency = 12, start = c(2016,8)) 
+    compare <- ts(occupancy[n:m], frequency = 12, start = c(2016,9)) 
   }
   
   e <- abs((compare-fitted)/compare) * 100
