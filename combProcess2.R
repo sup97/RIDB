@@ -3,7 +3,7 @@ combProcess2 <- function(data, N){
   if(N<10){
     train <- window(occupancy, end=c(2017,8-N))
   } else {
-    train <- window(occupancy, end=c(2016,7))
+    train <- window(occupancy, end=c(2016,8))
   }
   
   SARIMA <- forecast(auto.arima(train, 
@@ -32,7 +32,7 @@ combProcess2 <- function(data, N){
   if(N<10){
     compare <- ts(occupancy[n:m], frequency = 12, start = c(2017,9-N))
   } else {
-    compare <- ts(occupancy[n:m], frequency = 12, start = c(2016,8)) 
+    compare <- ts(occupancy[n:m], frequency = 12, start = c(2016,9)) 
   }
   
   gtemp.df = data.frame(Time=c(as.Date(time(compare))), 

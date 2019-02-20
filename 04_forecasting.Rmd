@@ -210,7 +210,7 @@ sarimaProcess(upperM, 6)
 
 ## ETS
 ```{r ETS}
-source("~/Documents/GitHub/RIDB/etsProcess.R")
+source("~/GitHub/RIDB/etsProcess.R")
 etsProcess(elkmontM, 6)
 etsProcess(matherM, 6)
 etsProcess(meadowsM, 6)
@@ -220,7 +220,7 @@ etsProcess(upperM, 6)
 
 ##NNAR
 ```{r NNAR}
-source("~/Documents/GitHub/RIDB/nnarProcess.R")
+source("~/GitHub/RIDB/nnarProcess.R")
 nnarProcess(elkmontM, 3)
 nnarProcess(matherM, 3)
 nnarProcess(meadowsM, 3)
@@ -240,7 +240,50 @@ nnarProcess(moraineM, 12)
 nnarProcess(upperM, 12)
 ```
 
-## ETS + SARIMA + NNAR
+##KNN
+```{r KNN}
+source("~/GitHub/RIDB/knnProcess.R")
+
+knnProcess(elkmontM, 6)
+knnProcess(matherM, 6)
+knnProcess(meadowsM, 6)
+knnProcess(moraineM, 6)
+knnProcess(upperM, 6)
+```
+
+##MAPE
+
+```{r}
+source("~/GitHub/RIDB/mapeProcess.R")
+mapeProcess(elkmontM, 2)
+mapeProcess(matherM, 2)
+mapeProcess(meadowsM, 2)
+mapeProcess(moraineM, 2)
+mapeProcess(upperM, 2)
+
+mapeProcess(elkmontM, 3)
+mapeProcess(matherM, 3)
+mapeProcess(meadowsM, 3)
+mapeProcess(moraineM, 3)
+mapeProcess(upperM, 3)
+
+mapeProcess(elkmontM, 6)
+mapeProcess(matherM, 6)
+mapeProcess(meadowsM, 6)
+mapeProcess(moraineM, 6)
+mapeProcess(upperM, 6)
+
+mapeProcess(elkmontM, 12)
+mapeProcess(matherM, 12)
+mapeProcess(meadowsM, 12)
+mapeProcess(moraineM, 12)
+mapeProcess(upperM, 12)
+
+```
+
+
+
+## ETS + SARIMA + NNAR +KNN
 ```{r Combination}
 source("~/GitHub/RIDB/combProcess.R")
 combProcess(elkmontM, 3)
@@ -399,49 +442,6 @@ dev.off()
 
   
 ```
-
-##KNN
-```{r KNN}
-source("~/Documents/GitHub/RIDB/knnProcess.R")
-
-knnProcess(elkmontM, 6)
-knnProcess(matherM, 6)
-knnProcess(meadowsM, 6)
-knnProcess(moraineM, 6)
-knnProcess(upperM, 6)
-```
-
-##MAPE
-
-```{r}
-source("~/GitHub/RIDB/mapeProcess.R")
-mapeProcess(elkmontM, 2)
-mapeProcess(matherM, 2)
-mapeProcess(meadowsM, 2)
-mapeProcess(moraineM, 2)
-mapeProcess(upperM, 2)
-
-mapeProcess(elkmontM, 3)
-mapeProcess(matherM, 3)
-mapeProcess(meadowsM, 3)
-mapeProcess(moraineM, 3)
-mapeProcess(upperM, 3)
-
-mapeProcess(elkmontM, 6)
-mapeProcess(matherM, 6)
-mapeProcess(meadowsM, 6)
-mapeProcess(moraineM, 6)
-mapeProcess(upperM, 6)
-
-mapeProcess(elkmontM, 12)
-mapeProcess(matherM, 12)
-mapeProcess(meadowsM, 12)
-mapeProcess(moraineM, 12)
-mapeProcess(upperM, 12)
-
-```
-
-
 
 
 
