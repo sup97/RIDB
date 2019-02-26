@@ -55,12 +55,12 @@ ELKMONT CAMPGROUND	Great Smoky Mountains	220	211	Open 3/9 - 11/25	4	365
 rm(list=ls())
 
 #load functions
-source("~/GitHub/RIDB/formatCamp.R")
-source("~/GitHub/RIDB/unitTest.R")
-source("~/GitHub/RIDB/campMGraph.R")
+source("~/Documents/GitHub/RIDB/formatCamp.R")
+source("~/Documents/GitHub/RIDB/unitTest.R")
+source("~/Documents/GitHub/RIDB/campMGraph.R")
 
 #load data
-data <- fread("~/GitHub/RIDB/data/final_data.csv")
+data <- fread("~/Documents/GitHub/RIDB/data/final_data.csv")
 
 #unique(data$id[data$Campground=="MATHER CAMPGROUND"]) #65
 formatCamp(65)
@@ -140,9 +140,7 @@ p3 <- campMGraph(meadows, meadowsM)+ggtitle("Big Meadows, Shenandoah")
 p4 <- campMGraph(moraine, moraineM)+ggtitle("Moraine, Rocky Mountain")
 p5 <- campMGraph(upper, upperM)+ggtitle("Upper Pines, Yosemite")
 
-jpeg('occupancy.jpg',
-     width = 800, height = 450, units = "px", pointsize = 11,
-     quality = 100)
+pdf("occupancy.pdf", 16, 9)
 grid.arrange(p1, p2, p3, p4, p5, ncol=3, nrow=2)
 dev.off()
 ```
@@ -306,7 +304,7 @@ combProcess(upperM, 12)
 ```
 
 ```{r 12 months graph}
-source("~/GitHub/RIDB/combProcess2.R")
+source("~/Documents/GitHub/RIDB/combProcess2.R")
 b<-combProcess2(elkmontM, 12)
 c<-combProcess2(matherM, 12)
 a<-combProcess2(meadowsM, 12)
@@ -365,14 +363,14 @@ e<-ggplot(data = e, aes(x=Time, y=value, color=series )  )  +
     scale_x_date(date_breaks = "2 month", date_labels = "%b %Y") +
     scale_colour_manual(values=cbbPalette)
 
-source("~/Github/RIDB/grid_arrange_shared_legend.R")
-jpeg(filename = "forecasting12.jpeg", width = 20, height = 10, units = 'in', res = 300)
+source("~/Documents/Github/RIDB/grid_arrange_shared_legend.R")
+pdf("forecasting12.pdf", 16, 9)
 grid_arrange_shared_legend(a, b, c, d, e, ncol=3, nrow=2)
 dev.off()  
 ```
 
 ```{r 6 months graph}
-source("~/GitHub/RIDB/combProcess2.R")
+source("~/Documents/GitHub/RIDB/combProcess2.R")
 b<-combProcess2(elkmontM, 6)
 c<-combProcess2(matherM, 6)
 a<-combProcess2(meadowsM, 6)
@@ -431,8 +429,8 @@ e<-ggplot(data = e, aes(x=Time, y=value, color=series )  )  +
     scale_x_date(date_breaks = "2 month", date_labels = "%b %Y") +
     scale_colour_manual(values=cbbPalette)
 
-source("~/Github/RIDB/grid_arrange_shared_legend.R")
-jpeg(filename = "forecasting6.jpeg", width = 20, height = 10, units = 'in', res = 300)
+source("~/Documents/Github/RIDB/grid_arrange_shared_legend.R")
+pdf("forecasting6.pdf", 16, 9)
 grid_arrange_shared_legend(a, b, c, d, e, ncol=3, nrow=2)
 dev.off()  
 ```
